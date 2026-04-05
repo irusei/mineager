@@ -1,4 +1,3 @@
-
 <br />
 <div align="center">
   <a>
@@ -30,8 +29,7 @@
 ## Getting Started
 
 ### Prerequisites
-
-This is an example of how to list things you need to use the software and how to install them.
+  
 * npm
 * rustup, cargo
 * any system-specific dependencies required to view a Tauri app
