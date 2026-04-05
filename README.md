@@ -21,6 +21,7 @@
 <b>mineager</b> is a server manager for Minecraft that currently provides:
 <ul>
 <li>Easy server setup (Vanilla, Paper servers)</li>
+<li>Automatic Java version manager</li>
 <li>Configuration & server.properties management</li>
 <li>Server console support</li>
 </ul>
@@ -61,7 +62,7 @@ Some, but not all:
 - [ ] Creating/restoring backups
 - [ ] Plugin support
 - [ ] Mod/modpack support
-- [ ] Automatic Java detection + installation
+- [X] Automatic Java detection + installation
 
 <!-- CONTRIBUTING -->
 ## Contributing

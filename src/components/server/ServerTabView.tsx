@@ -30,7 +30,7 @@ interface ServerTabViewProps {
 
 export function ServerTabView({ tab, setTab, visible, startServer, stopServer }: ServerTabViewProps) {
     return (
-        <div className={"absolute right-0 w-75 bg-neutral-900 flex flex-col py-0 h-full border-l border-zinc-800 overflow-y-scroll scrollbar-hide " + (!visible && "hidden")}>
+        <div className={"z-10 absolute right-0 w-75 bg-neutral-900 flex flex-col py-0 h-full border-l border-zinc-800 overflow-y-scroll scrollbar-hide " + (!visible && "hidden")}>
             <div className={"w-full p-2 flex flex-row space-x-2 font-medium text-gray-400"}>
                 <ChevronDown/>
                 <p>Controls</p>

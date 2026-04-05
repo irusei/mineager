@@ -5,6 +5,7 @@ use std::sync::{LazyLock, Mutex};
 use serde::{Deserialize, Serialize};
 use crate::utils::jars;
 use crate::utils::local_servers::LocalServer;
+use crate::utils::path::get_core_path;
 
 // TODO: convert this to a mutex
 const SERVER_STORAGE_FILE: &str = "servers.json";
@@ -23,13 +24,6 @@ pub(crate) struct Server {
 
 pub fn get_cloned_servers() -> Vec<Server> {
     return (*SERVERS.lock().unwrap()).clone();
-}
-
-fn get_core_path() -> std::path::PathBuf {
-    let mut path = dirs::data_local_dir().expect("Failed to get data local dir");
-    path.push("mineager");
-
-    path
 }
 
 pub fn get_server_path(server_id: &str) -> Option<std::path::PathBuf> {

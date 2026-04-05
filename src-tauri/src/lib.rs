@@ -3,6 +3,7 @@ use std::sync::{LazyLock, Mutex};
 use serde::Serialize;
 use tauri::{Emitter, Manager};
 
+use crate::utils::java::{detector, jre};
 use crate::utils::{local_servers, servers};
 use crate::utils::versions::{get_paper_versions, get_vanilla_versions};
 
@@ -45,6 +46,10 @@ async fn create_server(server_name: String, server_type: String, version: String
 
     // create server
     let server_id: String = uuid::Uuid::new_v4().to_string();
+    let java_path = jre::download_java(
+        &detector::get_jre_version(&version)
+    ).await.map(|result| result.to_string_lossy().into_owned()).unwrap_or(String::from(""));
+
     let server = servers::Server {
         server_id,
         server_name,
@@ -52,7 +57,7 @@ async fn create_server(server_name: String, server_type: String, version: String
         server_version: version,
         launch_args: String::from(""),
         allocated_ram: String::from("4096M"),
-        java_path: String::from(""),
+        java_path: java_path,
     };
 
     // add server

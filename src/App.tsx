@@ -36,7 +36,7 @@ function App() {
     useInterval(() => invoke('request_servers'), 1000);
 
     return (
-        <div className={"flex flex-row min-w-screen min-h-screen bg-neutral-900 overflow-hidden"}>
+        <div className={"flex flex-row min-w-screen min-h-screen max-w-screen max-h-screen bg-neutral-900 overflow-hidden"}>
             <Sidebar servers={servers} selectedServer={selectedServer} onSelectedServer={(server: MinecraftServer) => setSelectedServer(server)}/>
             {selectedServer && <ServerView server={selectedServer}/>}
         </div>

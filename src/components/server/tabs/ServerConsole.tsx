@@ -68,7 +68,7 @@ export function ServerConsole({ server }: ServerConsoleProps) {
     // TODO: redo this and make it not use intervals so it's more optimized
     useInterval(() => {
         fetchConsole();
-    }, 200)
+    }, 50)
 
     function acceptEula() {
         invoke('set_eula_accepted', { serverId: server.server_id, accepted: true}).then(() => {
@@ -81,15 +81,17 @@ export function ServerConsole({ server }: ServerConsoleProps) {
         <>
             <div className="flex-1 p-4 bg-neutral-900">
                 {/* Console Container */}
-                <div className="rounded-lg flex flex-col h-full w-full bg-neutral-900 border-zinc-800 border">
+                <div className="rounded-lg flex flex-col h-full w-full max-w-full bg-neutral-900 border-zinc-800 border">
                     {/* Console Header */}
                     <div className="bg-zinc-800 h-12 rounded-t-lg p-3 text-gray-300 flex flex-row items-center gap-x-2">
                         <Terminal className="w-5 h-5" />
                         <p className="text-sm font-medium">Console Output</p>
                     </div>
 
-                    {/* Console Body */}
-                    <div ref={consoleRef} className="flex-1 p-4 min-h-90 max-h-90 h-90 overflow-y-scroll font-mono text-sm scrollbar-hide">
+                    {/* Console Body 
+                        I hate these min-h-90 min-w-215 things I wish I knew how not to do that
+                    */}
+                    <div ref={consoleRef} className="flex-1 p-4 min-h-90 max-h-90 h-90 max-w-215 w-215 min-w-215 overflow-x-scroll overflow-y-scroll font-mono text-sm scrollbar-hide">
                         {consoleOutput.map((line, index) => (
                             <p key={index} className={getConsoleColor(line)}>{line}</p>
                         ))}
