@@ -77,19 +77,11 @@ async fn create_server(server_name: String, server_type: String, version: String
 #[tauri::command(async)]
 fn update_local_server(server: local_servers::LocalServer) {
     local_servers::update_local_server(server);
-    
-    // update window
-    update_frontend();
 }
 
 #[tauri::command(async)]
 fn start_server(server_id: String) {
     local_servers::start_local_server(&server_id).expect("Failed to launch server");
-}
-
-#[tauri::command(async)]
-fn request_servers() {
-    update_frontend();
 }
 
 #[tauri::command(async)]
@@ -122,7 +114,7 @@ fn write_properties(server_id: &str, new_properties: &str) {
 pub fn run() {
     tauri::Builder::default()
         .plugin(tauri_plugin_opener::init())
-        .invoke_handler(tauri::generate_handler![init_window_properties, request_servers, fetch_versions, create_server, update_local_server, 
+        .invoke_handler(tauri::generate_handler![init_window_properties, fetch_versions, create_server, update_local_server, 
             start_server, get_stdout, set_eula_accepted, write_stdin, read_properties_lines, write_properties])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

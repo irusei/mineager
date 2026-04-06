@@ -2,12 +2,17 @@ import { useEffect, useRef, useState } from "react";
 import {MinecraftServer} from "../../../types/types.tsx";
 import {Check, ChevronRight, Terminal} from "lucide-react";
 import { invoke } from "@tauri-apps/api/core";
-import { useInterval } from "usehooks-ts";
 import Button from "../../ui/Button.tsx";
 import { getConsoleColor } from "../../../utils/colors.ts";
+import { listen } from "@tauri-apps/api/event";
 
 interface ServerConsoleProps {
     server: MinecraftServer
+}
+
+interface ConsoleUpdatePayload {
+    server_id: string,
+    line: string,
 }
 export function ServerConsole({ server }: ServerConsoleProps) {
     const consoleRef = useRef<HTMLDivElement>(null);
@@ -37,19 +42,35 @@ export function ServerConsole({ server }: ServerConsoleProps) {
         if (server.status === "Online") {
             invoke("get_stdout", { serverId: server.server_id }).then((res) => {
                 let response: string[] = res as string[];
-                if (response.length > 0)
+                if (response.length > 0) {
                     if (consoleOutput != response) {
                         setShouldScroll(shouldScrollToBottom())
                         setConsoleOutput(response);
                     }
+                }
             })
         }
     }
 
     // Refresh console on server change
     useEffect(() => {
+        const consoleUpdateUnlisten = listen('console-update', (event) => {
+            const consoleUpdatePayload = event.payload as ConsoleUpdatePayload;
+            console.log(consoleUpdatePayload);
+            if (consoleUpdatePayload.server_id === server.server_id) {
+                setConsoleOutput((oldConsoleOutput) => ([
+                    ...oldConsoleOutput,
+                    consoleUpdatePayload.line
+                ]))
+            }
+        }) 
+
         setConsoleOutput(["Server offline"]);
         fetchConsole();
+
+        return () => {
+            consoleUpdateUnlisten.then((ul) => ul());
+        }
     }, [server.server_id]);
     
     // Console output monitoring
@@ -64,11 +85,6 @@ export function ServerConsole({ server }: ServerConsoleProps) {
         if (shouldScroll)
             scrollToBottom();
     }, [consoleOutput])
-
-    // TODO: redo this and make it not use intervals so it's more optimized
-    useInterval(() => {
-        fetchConsole();
-    }, 50)
 
     function acceptEula() {
         invoke('set_eula_accepted', { serverId: server.server_id, accepted: true}).then(() => {

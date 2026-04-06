@@ -38,14 +38,18 @@ export function AddServer() {
     }, [serverType]);
 
     useEffect(() => {
-        listen('update-create-button-text', (event) => {
+        const updateCreateButtonTextUnlisten = listen('update-create-button-text', (event) => {
             const newText = event.payload as string;
 
             setCreateServerButtonTextContent(newText);
             if (newText === "Create" && createBtnDisabled)
                 setCreateBtnDisabled(false);
         });
-    })
+
+        return () => {
+            updateCreateButtonTextUnlisten.then((ul) => ul());
+        }
+    }, [])
     return <>
         <h1>
             <div className={"flex flex-row items-center justify-center min-w-screen min-h-screen bg-neutral-900 overflow-hidden"}>

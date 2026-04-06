@@ -6,6 +6,7 @@ use std::sync::{Arc, LazyLock, Mutex};
 use serde::{Deserialize, Serialize};
 
 use crate::manager::servers;
+use crate::{try_emit, update_frontend};
 
 #[derive(Deserialize, Serialize, Clone)]
 pub enum ServerStatus {
@@ -31,6 +32,12 @@ struct ServerProcess {
     stdin: Arc<Mutex<ChildStdin>>,
     stdout: Vec<String>,
     // child: Arc<Mutex<std::process::Child>>
+}
+
+#[derive(Deserialize, Serialize, Clone)]
+struct ConsoleUpdatePayload {
+    server_id: String,
+    line: String,
 }
 
 static SERVERS: LazyLock<Mutex<Vec<LocalServer>>> = LazyLock::new(|| {
@@ -132,6 +139,8 @@ pub fn start_local_server(server_id: &str) -> Result<(), Box<dyn std::error::Err
             locked_servers.iter_mut().find(|s| s.server_id == server.server_id).unwrap().status = ServerStatus::Online;
         }
 
+        update_frontend();
+
         // reader thread
         // handle server stdout and put into a vec in ServerProcess
         let server_id_clone = server.server_id.clone();
@@ -156,11 +165,15 @@ pub fn start_local_server(server_id: &str) -> Result<(), Box<dyn std::error::Err
         // clean up process and change status
         let server_id_clone = server.server_id.clone();
         thread::spawn(move || {
-            child_arc.lock().unwrap().wait().expect("Failed to wait on process");
-            SERVER_PROCESS_HASHMAP.lock().unwrap().remove(&server_id_clone);
-            if let Some(server) = SERVERS.lock().unwrap().iter_mut().find(|s| s.server_id.eq(&server_id_clone)) {
-                server.status = ServerStatus::Offline;
+            {
+                child_arc.lock().unwrap().wait().expect("Failed to wait on process");
+                SERVER_PROCESS_HASHMAP.lock().unwrap().remove(&server_id_clone);
+                if let Some(server) = SERVERS.lock().unwrap().iter_mut().find(|s| s.server_id.eq(&server_id_clone)) {
+                    server.status = ServerStatus::Offline;
+                }
             }
+            
+            update_frontend();
         });
 
         return Ok(())
@@ -179,6 +192,10 @@ pub fn write_stdout(server_id: &str, line: &str) -> Result<(), ()> {
     let mut process_hashmap = SERVER_PROCESS_HASHMAP.lock().unwrap();
     let proc = process_hashmap.get_mut(server_id);
     if let Some(proc) = proc {
+        try_emit::<ConsoleUpdatePayload>("console-update", ConsoleUpdatePayload {
+            server_id: server_id.to_string(),
+            line: line.to_string(),
+        });
         proc.stdout.push(line.to_string());
         Ok(())
     } else {
@@ -205,16 +222,20 @@ pub fn write_stdin(server_id: &str, string: &str) {
 }
 
 pub fn update_local_server(server: LocalServer) {
-    let mut locked_servers = SERVERS.lock().unwrap();
+    {
+        let mut locked_servers = SERVERS.lock().unwrap();
 
-    if let Some(old_server) = locked_servers.iter_mut().find(|s| s.server_id == server.server_id.clone()) {
-        old_server.server_name = server.server_name.clone();
-        old_server.server_type = server.server_type.clone();
-        old_server.server_version = server.server_version.clone();
-        old_server.allocated_ram = server.allocated_ram.clone();
-        old_server.java_path = server.java_path.clone();
-        old_server.launch_args = server.launch_args.clone();
+        if let Some(old_server) = locked_servers.iter_mut().find(|s| s.server_id == server.server_id.clone()) {
+            old_server.server_name = server.server_name.clone();
+            old_server.server_type = server.server_type.clone();
+            old_server.server_version = server.server_version.clone();
+            old_server.allocated_ram = server.allocated_ram.clone();
+            old_server.java_path = server.java_path.clone();
+            old_server.launch_args = server.launch_args.clone();
 
-        servers::update_server_from_local_server(server);
+            servers::update_server_from_local_server(server);
+        }
     }
+
+    update_frontend();
 }
