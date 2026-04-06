@@ -1,10 +1,12 @@
 import { useEffect, useState } from "react";
-import {MinecraftServer} from "../../../types/types.tsx";
+import {MinecraftServer, ServerType} from "../../../types/types.tsx";
 import { Check, ChevronRight, X } from "lucide-react";
 import Button from "../../ui/Button.tsx";
 import { invoke } from "@tauri-apps/api/core";
 import { SettingContainer } from "../../ui/SettingContainer.tsx";
 import { Input } from "../../ui/Input.tsx";
+import { Select } from "../../ui/Select.tsx";
+import { sortVersions } from "../../../utils/versions.ts";
 
 interface ServerSettingsProps { 
     server: MinecraftServer
@@ -12,6 +14,18 @@ interface ServerSettingsProps {
 export function ServerSettings({ server }: ServerSettingsProps) {
     const [settingServer, setSettingServer] = useState<MinecraftServer>(server);
     const [showDeleteServerModal, setShowDeleteServerModal] = useState<boolean>(false);
+    const [availableVersions, setAvailableVersions] = useState<string[]>([]);
+
+    useEffect(() => {
+        async function fetchAvailableVersions() {
+            const versions = await invoke("fetch_versions", { serverType: settingServer.server_type }) as string[];
+            const newVersions = sortVersions(versions)
+            setAvailableVersions(newVersions);
+        }
+
+        setAvailableVersions([]);
+        fetchAvailableVersions();
+    }, [settingServer.server_type]);
 
     async function applySettings() {
         await invoke("update_local_server", {server: settingServer})
@@ -23,7 +37,7 @@ export function ServerSettings({ server }: ServerSettingsProps) {
     }
     useEffect(() => {
         setSettingServer(server);
-    }, [server.server_id])
+    }, [server.server_id, server.java_path]) // when the backend updates java path by itself
 
     return (
         <>
@@ -58,6 +72,29 @@ export function ServerSettings({ server }: ServerSettingsProps) {
                     }}/>
                 </SettingContainer>
                 <p className={"text-xl font-medium text-red-400"}>Danger Zone</p>
+                <SettingContainer name={"Type"} description={"Server type"}>
+                    <Select disabled={server.status === "Online"} value={settingServer.server_type} options={["Vanilla", "Paper"]} setValue={(newValue) => {
+                        setSettingServer((oldSettingServer) => ({
+                            ...oldSettingServer,
+                            server_type: newValue as ServerType
+                        }))
+                    }}/>
+                </SettingContainer>
+                {availableVersions.length > 0 && 
+                    <SettingContainer name={"Version"} description={"The version of the server"}>
+                        <Select disabled={server.status === "Online"} value={(() => {
+                            if (availableVersions.indexOf(settingServer.server_version) != -1)
+                                return settingServer.server_version;
+
+                            return availableVersions[availableVersions.length - 1];
+                        })()} options={availableVersions} setValue={(newValue) => {
+                            setSettingServer((oldSettingServer) => ({
+                                ...oldSettingServer,
+                                server_version: newValue
+                            }))
+                        }}/>
+                    </SettingContainer>
+                }
                 <SettingContainer name={"Delete Server"} description={"Delete the server. All data will be lost."}>
                     <Button className={"w-1/2"} disabled={server.status === "Online"} color={"red"}
                         title={server.status === "Online" ? "The server must be turned off." : ""}

@@ -52,10 +52,22 @@ pub fn diff_local_servers() {
     let servers = servers::get_cloned_servers();
     // merge servers with local_servers if a server doesn't exist
     for server in &servers {
-        let locked_servers: Vec<LocalServer> = {
-            SERVERS.lock().unwrap().clone()
-        };
-        if !locked_servers.iter().any(|s| s.server_id == server.server_id) {
+        let mut locked_servers = SERVERS.lock().unwrap();
+        if let Some(index) = locked_servers.iter().position(|s,| s.server_id == server.server_id) {
+            let local_server = LocalServer {
+                server_id: server.server_id.clone(),
+                server_name: server.server_name.clone(),
+                server_type: server.server_type.clone(),
+                server_version: server.server_version.clone(),
+                allocated_ram: server.allocated_ram.clone(),
+                launch_args: server.launch_args.clone(),
+                java_path: server.java_path.clone(),
+
+                status: locked_servers[index].status.clone()
+            };
+            
+            locked_servers[index] = local_server;
+        } else {
             let local_server = LocalServer {
                 server_id: server.server_id.clone(),
                 server_name: server.server_name.clone(),
@@ -68,9 +80,7 @@ pub fn diff_local_servers() {
                 status: ServerStatus::Offline
             };
  
-            {
-                SERVERS.lock().unwrap().push(local_server);
-            }
+            locked_servers.push(local_server);
         }
     }
 
@@ -240,22 +250,9 @@ pub fn write_stdin(server_id: &str, string: &str) {
     }
 }
 
-pub fn update_local_server(server: LocalServer) {
-    {
-        let mut locked_servers = SERVERS.lock().unwrap();
-
-        if let Some(old_server) = locked_servers.iter_mut().find(|s| s.server_id == server.server_id.clone()) {
-            old_server.server_name = server.server_name.clone();
-            old_server.server_type = server.server_type.clone();
-            old_server.server_version = server.server_version.clone();
-            old_server.allocated_ram = server.allocated_ram.clone();
-            old_server.java_path = server.java_path.clone();
-            old_server.launch_args = server.launch_args.clone();
-
-            servers::update_server_from_local_server(server);
-        }
-    }
-
+pub async fn update_local_server(server: LocalServer) {
+    servers::update_server_from_local_server(server).await;
+    diff_local_servers();
     update_frontend();
 }
 

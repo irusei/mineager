@@ -75,8 +75,8 @@ async fn create_server(server_name: String, server_type: String, version: String
 }
 
 #[tauri::command(async)]
-fn update_local_server(server: local_servers::LocalServer) {
-    local_servers::update_local_server(server);
+async fn update_local_server(server: local_servers::LocalServer) {
+    local_servers::update_local_server(server).await;
 }
 
 #[tauri::command(async)]

@@ -4,12 +4,13 @@ use std::io::{BufRead, BufReader, ErrorKind, Write};
 use std::sync::{LazyLock, Mutex};
 use serde::{Deserialize, Serialize};
 
+use crate::java::jre::download_java;
+use crate::java::detector::get_jre_version;
 use crate::manager::local_servers::LocalServer;
 use crate::minecraft::jars;
-use crate::update_frontend;
+use crate::{try_emit, update_frontend};
 use crate::utils::path::get_core_path;
 
-// TODO: convert this to a mutex
 const SERVER_STORAGE_FILE: &str = "servers.json";
 static SERVERS: LazyLock<Mutex<Vec<Server>>> = LazyLock::new(|| Mutex::new(read_servers()));
 
@@ -158,7 +159,6 @@ pub async fn install_server(server: Server) -> Result<(), Box<dyn std::error::Er
         println!("{}", err);
         
         // cleanup
-        remove_server(&server.server_id);
         return Err(format!("failed to fetch jar file: {}", err).into());
     }
 
@@ -175,11 +175,49 @@ pub async fn install_server(server: Server) -> Result<(), Box<dyn std::error::Er
 
 }
 
-pub fn update_server_from_local_server(local_server: LocalServer) {
-    {
+pub async fn update_server_from_local_server(local_server: LocalServer) {
+    let needs_reinstall: bool = {
+        let servers = SERVERS.lock().unwrap();
+        if let Some(s) = servers.iter().find(|s| s.server_id == local_server.server_id) {
+            if s.server_type != local_server.server_type || s.server_version != local_server.server_version {
+                true
+            } else {
+                false
+            }
+        } else {
+            false
+        }
+    };
+
+    if needs_reinstall {
+        let java_path: String = download_java(
+            &get_jre_version(&local_server.server_version)
+        ).await.map(|result| result.to_string_lossy().into_owned()).unwrap_or(String::from(""));
+
+        let new_server = Server {
+            server_id: local_server.server_id.clone(),
+            server_name: local_server.server_name,
+            server_type: local_server.server_type,
+            server_version: local_server.server_version,
+            launch_args: local_server.launch_args,
+            java_path: java_path, // change the java path here
+            allocated_ram: local_server.allocated_ram
+        };
+
+        {
+            match install_server(new_server.clone()).await {
+                Ok(_) => {
+                    let mut servers = SERVERS.lock().unwrap();
+                    if let Some(index) = servers.iter().position(|s| s.server_id == local_server.server_id) {
+                        servers[index] = new_server
+                    }
+                },
+                Err(ref err) => try_emit::<String>("alert", format!("{}", err)),
+            }
+        }
+    } else {
         let mut servers = SERVERS.lock().unwrap();
-        
-        if let Some(index) = servers.iter().position(|s| s.server_id.eq(&local_server.server_id)) {
+        if let Some(index) = servers.iter().position(|s| s.server_id == local_server.server_id) {
             servers[index] = Server {
                 server_id: local_server.server_id,
                 server_name: local_server.server_name,
