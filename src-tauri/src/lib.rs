@@ -3,11 +3,11 @@ use std::sync::{LazyLock, Mutex};
 use serde::Serialize;
 use tauri::{Emitter, Manager};
 
-use crate::utils::java::{detector, jre};
-use crate::utils::{local_servers, servers};
-use crate::utils::versions::{get_paper_versions, get_vanilla_versions};
+use crate::{java::{detector::get_jre_version, jre::download_java}, manager::{local_servers, servers::{self, Server, add_server, install_server}}, minecraft::versions::{get_paper_versions, get_vanilla_versions}};
 
-// Learn more about Tauri commands at https://tauri.app/develop/calling-rust/
+mod minecraft;
+mod manager;
+mod java;
 mod utils;
 
 static MAIN_HANDLE: LazyLock<Mutex<Option<tauri::AppHandle>>> = LazyLock::new(|| { Mutex::new(None) });
@@ -49,11 +49,11 @@ async fn create_server(server_name: String, server_type: String, version: String
 
     // download java
     try_emit("update-create-button-text", "Downloading Java...");
-    let java_path = jre::download_java(
-        &detector::get_jre_version(&version)
+    let java_path = download_java(
+       &get_jre_version(&version)
     ).await.map(|result| result.to_string_lossy().into_owned()).unwrap_or(String::from(""));
 
-    let server = servers::Server {
+    let server = Server {
         server_id,
         server_name,
         server_type: server_type.clone(), // avoid moving
@@ -64,11 +64,11 @@ async fn create_server(server_name: String, server_type: String, version: String
     };
 
     // add server
-    servers::add_server(server.clone());
+    add_server(server.clone());
 
     // install server
     try_emit("update-create-button-text", "Installing server...");
-    match servers::install_server(server).await {
+    match install_server(server).await {
         Ok(_) => update_frontend(),
         Err(ref err) => try_emit::<String>("alert", format!("{}", err)),
     }

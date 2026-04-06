@@ -1,8 +1,7 @@
 use serde::Deserialize;
 use sha2::Digest;
 
-use crate::utils::versions::get_vanilla_manifest_from_version;
-
+use crate::minecraft::versions::get_vanilla_manifest_from_version;
 
 #[derive(Debug, Deserialize)]
 struct PaperJar {

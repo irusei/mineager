@@ -3,7 +3,7 @@ use std::{fs, io::Cursor, path::PathBuf};
 use sha2::Digest;
 use zip::ZipArchive;
 
-use crate::utils::{java::{detector::JreVersion, sources}, path::get_core_path};
+use crate::{java::{detector::JreVersion, sources}, utils::path::get_core_path};
 
 // TODO: linux support
 

@@ -126,7 +126,7 @@ pub fn compare_versions(version1: &str, version2: &str) -> isize {
 
 #[cfg(test)]
 mod tests {
-    use crate::utils::versions::compare_versions;
+    use crate::minecraft::versions::compare_versions;
 
     #[test]
     fn test_compare_same_versions() {

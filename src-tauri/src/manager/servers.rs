@@ -3,8 +3,9 @@ use std::fs::{File, OpenOptions};
 use std::io::{BufRead, BufReader, ErrorKind, Write};
 use std::sync::{LazyLock, Mutex};
 use serde::{Deserialize, Serialize};
-use crate::utils::jars;
-use crate::utils::local_servers::LocalServer;
+
+use crate::manager::local_servers::LocalServer;
+use crate::minecraft::jars;
 use crate::utils::path::get_core_path;
 
 // TODO: convert this to a mutex

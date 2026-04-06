@@ -4,7 +4,8 @@ use std::{fs, thread};
 use std::process::{ChildStdin, Command, Stdio};
 use std::sync::{Arc, LazyLock, Mutex};
 use serde::{Deserialize, Serialize};
-use crate::utils::servers::{self, get_server_path};
+
+use crate::manager::servers;
 
 #[derive(Deserialize, Serialize, Clone)]
 pub enum ServerStatus {
@@ -29,7 +30,7 @@ pub(crate) struct LocalServer {
 struct ServerProcess {
     stdin: Arc<Mutex<ChildStdin>>,
     stdout: Vec<String>,
-    child: Arc<Mutex<std::process::Child>>
+    // child: Arc<Mutex<std::process::Child>>
 }
 
 static SERVERS: LazyLock<Mutex<Vec<LocalServer>>> = LazyLock::new(|| {
@@ -97,7 +98,7 @@ pub fn start_local_server(server_id: &str) -> Result<(), Box<dyn std::error::Err
 
         // push child
         let mut child = Command::new(server.java_path.clone())
-            .current_dir(get_server_path(server_id).unwrap())
+            .current_dir(servers::get_server_path(server_id).unwrap())
             .stdin(Stdio::piped())
             .stdout(Stdio::piped())
             .arg(format!("-Xmx{}", &server.allocated_ram))
@@ -116,7 +117,7 @@ pub fn start_local_server(server_id: &str) -> Result<(), Box<dyn std::error::Err
         let server_process = ServerProcess {
             stdin,
             stdout: Vec::new(),
-            child: child_arc.clone(),
+            // child: child_arc.clone(),
         };
         
         // Add process to hashmap

@@ -1,4 +1,4 @@
-use crate::utils::versions::compare_versions;
+use crate::minecraft::versions::compare_versions;
 
 #[derive(Debug, PartialEq, Eq)] // for tests
 pub enum JreVersion {
@@ -31,7 +31,7 @@ pub fn get_jre_version(minecraft_version: &str) -> JreVersion {
 
 #[cfg(test)]
 mod tests {
-    use crate::utils::java::detector::{JreVersion, get_jre_version};
+    use crate::java::detector::{JreVersion, get_jre_version};
 
     #[test]
     fn test_javadetector_jre8_1() {
