@@ -1,7 +1,8 @@
 use std::collections::HashMap;
 use std::io::{BufRead, BufReader, Write};
+use std::os::windows::process::CommandExt;
 use std::{fs, thread};
-use std::process::{ChildStdin, Command, Stdio};
+use std::process::{ChildStderr, ChildStdin, Command, Stdio};
 use std::sync::{Arc, LazyLock, Mutex};
 use serde::{Deserialize, Serialize};
 
@@ -55,21 +56,32 @@ pub fn start_server(server_id: &str) -> Result<(), Box<dyn std::error::Error>>{
         }
 
         // push child
-        let mut child = Command::new(server.java_path.clone())
+        let program_path = server.java_path.clone();
+        let mut config = Command::new(program_path);
+        
+        config
             .current_dir(servers::get_server_path(server_id).unwrap())
             .stdin(Stdio::piped())
             .stdout(Stdio::piped())
+            .stderr(Stdio::piped())
             .arg(format!("-Xmx{}", &server.allocated_ram))
             .args(server.launch_args.split_whitespace())
             .arg("-jar")
             .arg("server.jar")
-            .arg("--nogui")
-            .spawn()
+            .arg("--nogui");
+
+        // create no window on windows
+        #[cfg(windows)] {
+            config.creation_flags(0x08000000); // WINDOWS CREATE_NO_WINDOW CREATION FLAG
+        }
+
+        let mut child = config.spawn()
             .expect("Failed to run server");
 
         // separate child into stdin stdout and process
         let stdin = Arc::new(Mutex::new(child.stdin.take().unwrap()));
         let stdout = child.stdout.take().unwrap();
+        let stderr: ChildStderr = child.stderr.take().unwrap();
         let child_arc = Arc::new(Mutex::new(child));
         
         let server_process = ServerProcess {
@@ -91,6 +103,26 @@ pub fn start_server(server_id: &str) -> Result<(), Box<dyn std::error::Error>>{
         let server_id_clone = server.server_id.clone();
         thread::spawn(move || {
             let mut reader = BufReader::new(stdout);
+            loop {
+                let mut buf: Vec<u8> = Vec::new();
+                match reader.read_until(b'\n', &mut buf) {
+                    Ok(0) => break,
+                    Ok(_) => {
+                        let line = String::from_utf8(buf).unwrap();
+                        match write_stdout(&server_id_clone, line.trim_end()) {
+                            Ok(_) => continue,
+                            Err(_) => break
+                        }
+                    },
+                    Err(_) => break,
+                }
+            }
+        });
+
+        // stderr reader
+        let server_id_clone = server.server_id.clone();
+        thread::spawn(move || {
+            let mut reader = BufReader::new(stderr);
             loop {
                 let mut buf: Vec<u8> = Vec::new();
                 match reader.read_until(b'\n', &mut buf) {
