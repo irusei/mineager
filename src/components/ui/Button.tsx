@@ -4,10 +4,11 @@ interface ButtonProps {
     onClick?: (event: React.MouseEvent<HTMLButtonElement, MouseEvent>) => void;
     className?: string;
     children?: Array<React.ReactElement>;
-    color: "red" | "blue" | "orange"
+    color: "red" | "blue" | "orange",
+    disabled?: boolean,
 }
 
-export default function Button({ onClick, children, color, className }: ButtonProps) {
+export default function Button({ onClick, children, color, className, disabled }: ButtonProps) {
     const textClass: Record<ButtonProps["color"], string> = {
         red: "text-red-400",
         blue: "text-blue-400",
@@ -28,7 +29,16 @@ export default function Button({ onClick, children, color, className }: ButtonPr
     }
 
     return (
-        <button onClick={(event) => _onClick(event)} className={clsx("w-full flex flex-row gap-x-3 py-2 items-center justify-center outline-1 rounded-lg hover:cursor-pointer transition-all hover:text-white font-medium", textClass[color], outlineClass[color], className)}>
+        <button onClick={(event) => _onClick(event)} disabled={disabled} 
+            className={
+                clsx("w-full flex flex-row gap-x-3 py-2 items-center justify-center outline-1 rounded-lg hover:cursor-pointer transition-all font-medium", 
+                textClass[color], 
+                outlineClass[color],
+                className,
+                disabled
+                    ? "opacity-50 cursor-not-allowed pointer-events-none"
+                    : "hover:cursor-pointer hover:text-white"
+            )}>
             {children}
         </button>
     )

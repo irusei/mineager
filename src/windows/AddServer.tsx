@@ -6,17 +6,22 @@ import {sortVersions} from "../utils/versions.ts";
 import {getCurrentWindow} from "@tauri-apps/api/window";
 import { ServerType } from "../types/types.tsx";
 import Button from "../components/ui/Button.tsx";
+import { Input } from "../components/ui/Input.tsx";
+import { Select } from "../components/ui/Select.tsx";
+import { listen } from "@tauri-apps/api/event";
 
 export function AddServer() {
     const [serverName, setServerName] = useState("")
     const [serverType, setServerType] = useState<ServerType>("Vanilla")
     const [version, setVersion] = useState<string | null>(null);
     const [availableVersions, setAvailableVersions] = useState<string[]>([]);
+    const [createBtnDisabled, setCreateBtnDisabled] = useState<boolean>(false);
+    const [createServerButtonTextContent, setCreateServerButtonTextContent] = useState<String>("Create"); // used for broadcasting the server creation state
 
     async function createServer() {
-        console.log(version);
         if (serverName == "") return;
         if (version === null) return;
+        setCreateBtnDisabled(true);
 
         await invoke("create_server", {serverName, serverType, version});
         await getCurrentWindow().destroy();
@@ -31,6 +36,16 @@ export function AddServer() {
 
         fetchAvailableVersions();
     }, [serverType]);
+
+    useEffect(() => {
+        listen('update-create-button-text', (event) => {
+            const newText = event.payload as string;
+
+            setCreateServerButtonTextContent(newText);
+            if (newText === "Create" && createBtnDisabled)
+                setCreateBtnDisabled(false);
+        });
+    })
     return <>
         <h1>
             <div className={"flex flex-row items-center justify-center min-w-screen min-h-screen bg-neutral-900 overflow-hidden"}>
@@ -46,36 +61,31 @@ export function AddServer() {
                             <p className={"text-gray-400 font-medium"}>Server Name</p>
                             <div className={"mt-2 w-full flex flex-row gap-x-2 text-xl text-gray-500 bg-zinc-800 align-center items-center px-3 rounded-lg"}>
                                 <Book/>
-                                <input type={"text"} className={"w-full p-2 placeholder-gray-500 text-gray-300 focus:outline-none"} placeholder={"Server name"} value={serverName} onChange={(e) => setServerName(e.target.value)}/>
+                                <Input type={"text"} placeholder={"Server Name"} value={serverName}
+                                    onChange={(e) => setServerName(e.target.value)}/>
                             </div>
                         </div>
                         <div>
                             <p className={"text-gray-400 font-medium"}>Type</p>
                             <div className={"mt-2 w-full flex flex-row gap-x-2 text-xl text-gray-500 bg-zinc-800 align-center items-center px-3 rounded-lg"}>
                                 <Book/>
-                                <select className={"w-full p-2 placeholder-gray-500 text-gray-300 focus:outline-none"} value={serverType} onChange={(event) => setServerType(event.target.value as ServerType)}>
-                                    {["Vanilla", "Paper"].map((st: string) => (
-                                        <option key={st} className={"bg-zinc-800 text-gray-300"} value={st}>{st}</option>
-                                    ))}
-                                </select>
+                                <Select className={"w-full"} value={serverType} setValue={(newValue) => setServerType(newValue as ServerType)} options={["Vanilla", "Paper"]}/>
                             </div>
                         </div>
-                        <div>
-                            <p className={"text-gray-400 font-medium"}>Version</p>
-                            <div className={"mt-2 w-full flex flex-row gap-x-2 text-xl text-gray-500 bg-zinc-800 align-center items-center px-3 rounded-lg"}>
-                                <Book/>
-                                {availableVersions.length > 0 && <select className={"w-full p-2 placeholder-gray-500 text-gray-300 focus:outline-none"} value={version ?? availableVersions[availableVersions.length - 1]} onChange={(event) => setVersion(event.target.value)}>
-                                    {availableVersions.map((v: string) => (
-                                        <option key={v} className={"bg-zinc-800 text-gray-300"} value={v}>{v}</option>
-                                    ))}
-                                </select>}
-                            </div>
-                        </div>
+                        {availableVersions.length > 0 && 
+                            <div>
+                                <p className={"text-gray-400 font-medium"}>Version</p>
+                                <div className={"mt-2 w-full flex flex-row gap-x-2 text-xl text-gray-500 bg-zinc-800 align-center items-center px-3 rounded-lg"}>
+                                    <Book/>
+                                    <Select className={"w-full"} value={version ?? availableVersions[availableVersions.length - 1]} setValue={(newValue) => setVersion(newValue as ServerType)} options={availableVersions}/>
+                                </div>
+                            </div>             
+                        }
                     </div>
                     <div className={"p-4 space-y-4"}>
-                        <Button onClick={async () => await createServer()} color={"orange"}>
+                        <Button disabled={createBtnDisabled} onClick={async () => await createServer()} color={"orange"}>
                             <Plus/>
-                            <p>Create</p>
+                            <p>{createServerButtonTextContent}</p>
                         </Button>
                         <Button onClick={async () => await getCurrentWindow().destroy()} color={"red"}>
                             <X/>

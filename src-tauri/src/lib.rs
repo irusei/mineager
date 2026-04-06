@@ -46,6 +46,9 @@ async fn create_server(server_name: String, server_type: String, version: String
 
     // create server
     let server_id: String = uuid::Uuid::new_v4().to_string();
+
+    // download java
+    try_emit("update-create-button-text", "Downloading Java...");
     let java_path = jre::download_java(
         &detector::get_jre_version(&version)
     ).await.map(|result| result.to_string_lossy().into_owned()).unwrap_or(String::from(""));
@@ -64,6 +67,7 @@ async fn create_server(server_name: String, server_type: String, version: String
     servers::add_server(server.clone());
 
     // install server
+    try_emit("update-create-button-text", "Installing server...");
     match servers::install_server(server).await {
         Ok(_) => update_frontend(),
         Err(ref err) => try_emit::<String>("alert", format!("{}", err)),
