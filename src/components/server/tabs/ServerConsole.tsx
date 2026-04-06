@@ -28,14 +28,13 @@ export function ServerConsole({ server }: ServerConsoleProps) {
         if (consoleDiv === null) return false;
 
         const height = Math.abs(consoleDiv.scrollHeight - consoleDiv.scrollTop)
-        return height <= consoleDiv.clientHeight
+        return height <= consoleDiv.clientHeight + 30;
     }
 
     function scrollToBottom() {
         const consoleDiv: HTMLDivElement | null = consoleRef.current;
         if (consoleDiv === null) return;
-        if (consoleDiv.children.length > 0)
-            consoleDiv.children[consoleDiv.children.length - 1].scrollIntoView();
+        consoleDiv.scrollTop = consoleDiv.scrollHeight;
     }
 
     function fetchConsole() {
@@ -57,6 +56,7 @@ export function ServerConsole({ server }: ServerConsoleProps) {
         const consoleUpdateUnlisten = listen('console-update', (event) => {
             const consoleUpdatePayload = event.payload as ConsoleUpdatePayload;
             if (consoleUpdatePayload.server_id === server.server.server_id) {
+                setShouldScroll(shouldScrollToBottom())
                 setConsoleOutput((oldConsoleOutput) => ([
                     ...oldConsoleOutput,
                     consoleUpdatePayload.line
