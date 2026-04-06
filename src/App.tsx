@@ -5,6 +5,7 @@ import {useEffect, useState} from "react";
 import ServerView from "./components/server/ServerView.tsx";
 import {invoke} from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
+import { useInterval } from "usehooks-ts";
 
 function App() {
     const [selectedServer, setSelectedServer] = useState<FrontendServer | null>(null);
@@ -42,6 +43,14 @@ function App() {
         if (!found)
             setSelectedServer(null);
     }, [servers])
+
+    // sometimes a race condition causes the servers not to display in the list
+    // this useinterval is meant to fix this
+    useInterval(() => {
+        if (servers.length === 0)
+            invoke("init_window_properties");
+
+    }, 1000)
     
     return (
         <div className={"flex flex-row min-w-screen min-h-screen max-w-screen max-h-screen bg-neutral-900 overflow-hidden"}>
