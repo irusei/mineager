@@ -6,6 +6,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::manager::local_servers::LocalServer;
 use crate::minecraft::jars;
+use crate::update_frontend;
 use crate::utils::path::get_core_path;
 
 // TODO: convert this to a mutex
@@ -99,7 +100,8 @@ pub fn add_server(server: Server) {
         let mut servers = SERVERS.lock().unwrap();
         servers.push(server);
     }
-    save_servers()
+    save_servers();
+    update_frontend();
 }
 
 pub fn remove_server(server_id: &str) {
@@ -112,7 +114,8 @@ pub fn remove_server(server_id: &str) {
 
         clean_server_directory(server_id);
     }
-    save_servers()
+    save_servers();
+    update_frontend();
 }
 
 pub fn set_eula_accepted(server_id: &str, accepted: bool) {

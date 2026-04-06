@@ -109,6 +109,11 @@ fn write_properties(server_id: &str, new_properties: &str) {
     servers::write_properties(server_id, new_properties);
 }
 
+#[tauri::command(async)]
+fn remove_server(server_id: &str) {
+    servers::remove_server(server_id);
+}
+
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
@@ -121,7 +126,7 @@ pub fn run() {
             }
         })
         .invoke_handler(tauri::generate_handler![init_window_properties, fetch_versions, create_server, update_local_server, 
-            start_server, get_stdout, set_eula_accepted, write_stdin, read_properties_lines, write_properties])
+            start_server, get_stdout, set_eula_accepted, write_stdin, read_properties_lines, write_properties, remove_server])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
 }

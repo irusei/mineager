@@ -31,10 +31,16 @@ function App() {
     // update selected server when info about it changes
     useEffect(() => {
         if (!selectedServer) return;
+        let found = false;
         for (const newServer of servers) {
-            if (newServer.server_id === selectedServer.server_id)
-                setSelectedServer(newServer)
+            if (newServer.server_id === selectedServer.server_id) {
+                found = true;
+            setSelectedServer(newServer)
+            }
         }
+
+        if (!found)
+            setSelectedServer(null);
     }, [servers])
     
     return (

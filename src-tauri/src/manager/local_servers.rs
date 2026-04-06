@@ -50,26 +50,46 @@ static SERVER_PROCESS_HASHMAP: LazyLock<Mutex<HashMap<String, ServerProcess>>> =
 
 pub fn diff_local_servers() {
     let servers = servers::get_cloned_servers();
-    // TODO: delete servers that don't exist in the file anymore
-    for server in servers {
+    // merge servers with local_servers if a server doesn't exist
+    for server in &servers {
         let locked_servers: Vec<LocalServer> = {
             SERVERS.lock().unwrap().clone()
         };
         if !locked_servers.iter().any(|s| s.server_id == server.server_id) {
             let local_server = LocalServer {
-                server_id: server.server_id,
-                server_name: server.server_name,
-                server_type: server.server_type,
-                server_version: server.server_version,
-                allocated_ram: server.allocated_ram,
-                launch_args: server.launch_args,
-                java_path: server.java_path,
+                server_id: server.server_id.clone(),
+                server_name: server.server_name.clone(),
+                server_type: server.server_type.clone(),
+                server_version: server.server_version.clone(),
+                allocated_ram: server.allocated_ram.clone(),
+                launch_args: server.launch_args.clone(),
+                java_path: server.java_path.clone(),
 
                 status: ServerStatus::Offline
             };
  
             {
                 SERVERS.lock().unwrap().push(local_server);
+            }
+        }
+    }
+
+    // remove from local_servers if not found in cloned_servers
+    let cloned_servers = {
+        SERVERS.lock().unwrap().clone()
+    };
+
+    for local_server in cloned_servers {
+        if servers.iter().position(|s| s.server_id == local_server.server_id) == None {
+            // missing from cloned_servers
+            // lock mutex and delete from local servers
+            {
+                let mut locked_local_servers = SERVERS.lock().unwrap();
+                
+                // get up to date index
+                if let Some(position) = locked_local_servers.iter().position(|s| s.server_id == local_server.server_id) {
+                    locked_local_servers.remove(position);
+                }
             }
         }
     }
@@ -80,9 +100,8 @@ pub fn get_local_servers() -> Vec<LocalServer> {
 }
 
 pub fn start_local_server(server_id: &str) -> Result<(), Box<dyn std::error::Error>>{
-    diff_local_servers();
     let server = {
-        let locked_servers = SERVERS.lock().unwrap();
+        let locked_servers = get_local_servers();
         locked_servers.iter().find(|s| s.server_id == server_id).cloned()
     };
 

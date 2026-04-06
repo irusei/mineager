@@ -6,9 +6,10 @@ interface ButtonProps {
     children?: Array<React.ReactElement>;
     color: "red" | "blue" | "orange",
     disabled?: boolean,
+    title?: string,
 }
 
-export default function Button({ onClick, children, color, className, disabled }: ButtonProps) {
+export default function Button({ onClick, children, color, className, disabled, title }: ButtonProps) {
     const textClass: Record<ButtonProps["color"], string> = {
         red: "text-red-400",
         blue: "text-blue-400",
@@ -29,12 +30,13 @@ export default function Button({ onClick, children, color, className, disabled }
     }
 
     return (
-        <button onClick={(event) => _onClick(event)} disabled={disabled} 
+        <button onClick={(event) => _onClick(event)} disabled={disabled ?? false} title={title ?? ""}
             className={
-                clsx("w-full flex flex-row gap-x-3 py-2 items-center justify-center outline-1 rounded-lg hover:cursor-pointer transition-all font-medium", 
+                clsx("flex flex-row gap-x-3 py-2 items-center justify-center outline-1 rounded-lg hover:cursor-pointer transition-all font-medium", 
                 textClass[color], 
                 outlineClass[color],
                 className,
+                (className && className.includes("w-")) ? "" : "w-full",
                 disabled
                     ? "opacity-50 cursor-not-allowed pointer-events-none"
                     : "hover:cursor-pointer hover:text-white"
