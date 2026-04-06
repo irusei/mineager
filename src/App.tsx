@@ -12,13 +12,11 @@ function App() {
 
     useEffect(() => {
         const updateLocalServersUnlisten = listen('update-local-servers', (event) => {
-            console.log("received local server change");
             let localServers: MinecraftServer[] = event.payload as MinecraftServer[];
             setServers(localServers);
         });
 
         const alertUnlisten = listen('alert', (event) => {
-            console.log(event.payload);
             alert(event.payload as string);
         });
 

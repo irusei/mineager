@@ -60,7 +60,6 @@ export function ServerProperties({ server }: ServerPropertiesProps) {
     }
 
     function applyProperties() {
-        console.log(propertiesMapToString(serverProperties!));
         if (serverProperties != null)
             invoke('write_properties', { serverId: server.server_id, newProperties: propertiesMapToString(serverProperties) });
     }

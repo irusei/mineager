@@ -56,7 +56,6 @@ export function ServerConsole({ server }: ServerConsoleProps) {
     useEffect(() => {
         const consoleUpdateUnlisten = listen('console-update', (event) => {
             const consoleUpdatePayload = event.payload as ConsoleUpdatePayload;
-            console.log(consoleUpdatePayload);
             if (consoleUpdatePayload.server_id === server.server_id) {
                 setConsoleOutput((oldConsoleOutput) => ([
                     ...oldConsoleOutput,
