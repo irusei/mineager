@@ -1,8 +1,8 @@
-import { MinecraftServer } from "../../types/types.tsx";
+import { FrontendServer } from "../../types/types.tsx";
 import { getStatusColor } from "../../utils/colors.ts";
 
 interface SidebarServerProps {
-    server: MinecraftServer;
+    server: FrontendServer;
     selected: boolean;
     onSelected: () => void
 }
@@ -44,9 +44,9 @@ export function SidebarServer({server, selected, onSelected}: SidebarServerProps
             <div className={"px-6 py-2 flex flex-row items-center justify-between hover:bg-orange-400 transition-all font-medium " + (selected ? "bg-orange-500" : "")}>
                 <div className={"flex flex-row items-center space-x-2"}>
                     <div className={`rounded-xl w-2 h-2 bg-red ${getStatusColor(server.status)}`}></div>
-                    <p className={"text-white"}>{server.server_name}</p>
+                    <p className={"text-white"}>{server.server.server_name}</p>
                 </div>
-                <p className={"transition-all font-normal " + (selected ? "text-gray-300" : "text-zinc-600")}>{server.server_version}</p>
+                <p className={"transition-all font-normal " + (selected ? "text-gray-300" : "text-zinc-600")}>{server.server.server_version}</p>
             </div>
         </div>
     )

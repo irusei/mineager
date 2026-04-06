@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import {MinecraftServer} from "../../../types/types.tsx";
+import {FrontendServer} from "../../../types/types.tsx";
 import {Check, ChevronRight, Terminal} from "lucide-react";
 import { invoke } from "@tauri-apps/api/core";
 import Button from "../../ui/Button.tsx";
@@ -7,7 +7,7 @@ import { getConsoleColor } from "../../../utils/colors.ts";
 import { listen } from "@tauri-apps/api/event";
 
 interface ServerConsoleProps {
-    server: MinecraftServer
+    server: FrontendServer
 }
 
 interface ConsoleUpdatePayload {
@@ -40,7 +40,7 @@ export function ServerConsole({ server }: ServerConsoleProps) {
 
     function fetchConsole() {
         if (server.status === "Online") {
-            invoke("get_stdout", { serverId: server.server_id }).then((res) => {
+            invoke("get_stdout", { serverId: server.server.server_id }).then((res) => {
                 let response: string[] = res as string[];
                 if (response.length > 0) {
                     if (consoleOutput != response) {
@@ -56,7 +56,7 @@ export function ServerConsole({ server }: ServerConsoleProps) {
     useEffect(() => {
         const consoleUpdateUnlisten = listen('console-update', (event) => {
             const consoleUpdatePayload = event.payload as ConsoleUpdatePayload;
-            if (consoleUpdatePayload.server_id === server.server_id) {
+            if (consoleUpdatePayload.server_id === server.server.server_id) {
                 setConsoleOutput((oldConsoleOutput) => ([
                     ...oldConsoleOutput,
                     consoleUpdatePayload.line
@@ -70,7 +70,7 @@ export function ServerConsole({ server }: ServerConsoleProps) {
         return () => {
             consoleUpdateUnlisten.then((ul) => ul());
         }
-    }, [server.server_id]);
+    }, [server.server.server_id]);
     
     // Console output monitoring
     useEffect(() => {
@@ -86,8 +86,8 @@ export function ServerConsole({ server }: ServerConsoleProps) {
     }, [consoleOutput])
 
     function acceptEula() {
-        invoke('set_eula_accepted', { serverId: server.server_id, accepted: true}).then(() => {
-            invoke('start_server', { serverId: server.server_id })
+        invoke('set_eula_accepted', { serverId: server.server.server_id, accepted: true}).then(() => {
+            invoke('start_server', { serverId: server.server.server_id })
         });
 
         setEulaVisible(false);
@@ -123,7 +123,7 @@ export function ServerConsole({ server }: ServerConsoleProps) {
                             onChange={(e) => setConsoleInput(e.target.value)}
                             onKeyUp={(e) => {
                                 if (e.keyCode === 13) {
-                                    invoke("write_stdin", { serverId: server.server_id, string: consoleInput });
+                                    invoke("write_stdin", { serverId: server.server.server_id, string: consoleInput });
                                     setConsoleInput("");
                                 }
                             }}

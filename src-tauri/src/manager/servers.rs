@@ -6,7 +6,6 @@ use serde::{Deserialize, Serialize};
 
 use crate::java::jre::download_java;
 use crate::java::detector::get_jre_version;
-use crate::manager::local_servers::LocalServer;
 use crate::minecraft::jars;
 use crate::{try_emit, update_frontend};
 use crate::utils::path::get_core_path;
@@ -156,9 +155,6 @@ pub async fn install_server(server: Server) -> Result<(), Box<dyn std::error::Er
     };
 
     if let Err(ref err) = jar_file {
-        println!("{}", err);
-        
-        // cleanup
         return Err(format!("failed to fetch jar file: {}", err).into());
     }
 
@@ -175,11 +171,11 @@ pub async fn install_server(server: Server) -> Result<(), Box<dyn std::error::Er
 
 }
 
-pub async fn update_server_from_local_server(local_server: LocalServer) {
+pub async fn update_server(new_server: Server) {
     let needs_reinstall: bool = {
         let servers = SERVERS.lock().unwrap();
-        if let Some(s) = servers.iter().find(|s| s.server_id == local_server.server_id) {
-            if s.server_type != local_server.server_type || s.server_version != local_server.server_version {
+        if let Some(s) = servers.iter().find(|s| s.server_id == new_server.server_id) {
+            if s.server_type != new_server.server_type || s.server_version != new_server.server_version {
                 true
             } else {
                 false
@@ -191,24 +187,24 @@ pub async fn update_server_from_local_server(local_server: LocalServer) {
 
     if needs_reinstall {
         let java_path: String = download_java(
-            &get_jre_version(&local_server.server_version)
+            &get_jre_version(&new_server.server_version)
         ).await.map(|result| result.to_string_lossy().into_owned()).unwrap_or(String::from(""));
 
         let new_server = Server {
-            server_id: local_server.server_id.clone(),
-            server_name: local_server.server_name,
-            server_type: local_server.server_type,
-            server_version: local_server.server_version,
-            launch_args: local_server.launch_args,
+            server_id: new_server.server_id.clone(),
+            server_name: new_server.server_name,
+            server_type: new_server.server_type,
+            server_version: new_server.server_version,
+            launch_args: new_server.launch_args,
             java_path: java_path, // change the java path here
-            allocated_ram: local_server.allocated_ram
+            allocated_ram: new_server.allocated_ram
         };
 
         {
             match install_server(new_server.clone()).await {
                 Ok(_) => {
                     let mut servers = SERVERS.lock().unwrap();
-                    if let Some(index) = servers.iter().position(|s| s.server_id == local_server.server_id) {
+                    if let Some(index) = servers.iter().position(|s| s.server_id == new_server.server_id) {
                         servers[index] = new_server
                     }
                 },
@@ -217,20 +213,21 @@ pub async fn update_server_from_local_server(local_server: LocalServer) {
         }
     } else {
         let mut servers = SERVERS.lock().unwrap();
-        if let Some(index) = servers.iter().position(|s| s.server_id == local_server.server_id) {
+        if let Some(index) = servers.iter().position(|s| s.server_id == new_server.server_id) {
             servers[index] = Server {
-                server_id: local_server.server_id,
-                server_name: local_server.server_name,
-                server_type: local_server.server_type,
-                server_version: local_server.server_version,
-                launch_args: local_server.launch_args,
-                java_path: local_server.java_path,
-                allocated_ram: local_server.allocated_ram
+                server_id: new_server.server_id,
+                server_name: new_server.server_name,
+                server_type: new_server.server_type,
+                server_version: new_server.server_version,
+                launch_args: new_server.launch_args,
+                java_path: new_server.java_path,
+                allocated_ram: new_server.allocated_ram
             };
         }
     }
 
-    save_servers()
+    save_servers();
+    update_frontend();
 }
 
 pub fn read_properties_lines(server_id: &str) -> Result<Vec<String>, Box<dyn std::error::Error>> {

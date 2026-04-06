@@ -5,27 +5,13 @@ use std::process::{ChildStdin, Command, Stdio};
 use std::sync::{Arc, LazyLock, Mutex};
 use serde::{Deserialize, Serialize};
 
-use crate::manager::servers;
+use crate::manager::servers::{self, get_cloned_servers};
 use crate::{try_emit, update_frontend};
 
-#[derive(Deserialize, Serialize, Clone)]
+#[derive(Serialize, Deserialize, Clone)]
 pub enum ServerStatus {
-    Online=0,
-    Idle=1,
-    Offline=2,
-}
-
-#[derive(Deserialize, Serialize, Clone)]
-pub(crate) struct LocalServer {
-    pub(crate) server_id: String,
-    pub(crate) server_name: String,
-    pub(crate) server_type: String,
-    pub(crate) server_version: String,
-    pub(crate) launch_args: String,
-    pub(crate) allocated_ram: String,
-    pub(crate) java_path: String,
-
-    pub(crate) status: ServerStatus,
+    Online,
+    Offline
 }
 
 struct ServerProcess {
@@ -40,78 +26,14 @@ struct ConsoleUpdatePayload {
     line: String,
 }
 
-static SERVERS: LazyLock<Mutex<Vec<LocalServer>>> = LazyLock::new(|| {
-    Mutex::new(vec![])
-});
-
 static SERVER_PROCESS_HASHMAP: LazyLock<Mutex<HashMap<String, ServerProcess>>> = LazyLock::new(|| {
     Mutex::new(HashMap::new())
 });
 
-pub fn diff_local_servers() {
-    let servers = servers::get_cloned_servers();
-    // merge servers with local_servers if a server doesn't exist
-    for server in &servers {
-        let mut locked_servers = SERVERS.lock().unwrap();
-        if let Some(index) = locked_servers.iter().position(|s,| s.server_id == server.server_id) {
-            let local_server = LocalServer {
-                server_id: server.server_id.clone(),
-                server_name: server.server_name.clone(),
-                server_type: server.server_type.clone(),
-                server_version: server.server_version.clone(),
-                allocated_ram: server.allocated_ram.clone(),
-                launch_args: server.launch_args.clone(),
-                java_path: server.java_path.clone(),
 
-                status: locked_servers[index].status.clone()
-            };
-            
-            locked_servers[index] = local_server;
-        } else {
-            let local_server = LocalServer {
-                server_id: server.server_id.clone(),
-                server_name: server.server_name.clone(),
-                server_type: server.server_type.clone(),
-                server_version: server.server_version.clone(),
-                allocated_ram: server.allocated_ram.clone(),
-                launch_args: server.launch_args.clone(),
-                java_path: server.java_path.clone(),
-
-                status: ServerStatus::Offline
-            };
- 
-            locked_servers.push(local_server);
-        }
-    }
-
-    // remove from local_servers if not found in cloned_servers
-    let cloned_servers = {
-        SERVERS.lock().unwrap().clone()
-    };
-
-    for local_server in cloned_servers {
-        if servers.iter().position(|s| s.server_id == local_server.server_id) == None {
-            // missing from cloned_servers
-            // lock mutex and delete from local servers
-            {
-                let mut locked_local_servers = SERVERS.lock().unwrap();
-                
-                // get up to date index
-                if let Some(position) = locked_local_servers.iter().position(|s| s.server_id == local_server.server_id) {
-                    locked_local_servers.remove(position);
-                }
-            }
-        }
-    }
-}
-pub fn get_local_servers() -> Vec<LocalServer> {
-    diff_local_servers();
-    SERVERS.lock().unwrap().clone()
-}
-
-pub fn start_local_server(server_id: &str) -> Result<(), Box<dyn std::error::Error>>{
+pub fn start_server(server_id: &str) -> Result<(), Box<dyn std::error::Error>>{
     let server = {
-        let locked_servers = get_local_servers();
+        let locked_servers = get_cloned_servers();
         locked_servers.iter().find(|s| s.server_id == server_id).cloned()
     };
 
@@ -161,12 +83,6 @@ pub fn start_local_server(server_id: &str) -> Result<(), Box<dyn std::error::Err
             let mut locked_processes = SERVER_PROCESS_HASHMAP.lock().unwrap();
             locked_processes.insert(server_id.to_string(), server_process);
         }
-    
-        // change status
-        {
-            let mut locked_servers = SERVERS.lock().unwrap();
-            locked_servers.iter_mut().find(|s| s.server_id == server.server_id).unwrap().status = ServerStatus::Online;
-        }
 
         update_frontend();
 
@@ -190,16 +106,14 @@ pub fn start_local_server(server_id: &str) -> Result<(), Box<dyn std::error::Err
                 }
             }
         });
+
         // handle on a seperate thread when server closes
-        // clean up process and change status
+        // clean up process 
         let server_id_clone = server.server_id.clone();
         thread::spawn(move || {
             {
                 child_arc.lock().unwrap().wait().expect("Failed to wait on process");
                 SERVER_PROCESS_HASHMAP.lock().unwrap().remove(&server_id_clone);
-                if let Some(server) = SERVERS.lock().unwrap().iter_mut().find(|s| s.server_id.eq(&server_id_clone)) {
-                    server.status = ServerStatus::Offline;
-                }
             }
             
             update_frontend();
@@ -250,12 +164,6 @@ pub fn write_stdin(server_id: &str, string: &str) {
     }
 }
 
-pub async fn update_local_server(server: LocalServer) {
-    servers::update_server_from_local_server(server).await;
-    diff_local_servers();
-    update_frontend();
-}
-
 pub fn stop_all_servers() {
     let server_ids: Vec<String> = {
         let locked_processes = SERVER_PROCESS_HASHMAP.lock().unwrap();
@@ -264,5 +172,17 @@ pub fn stop_all_servers() {
 
     for server_id in server_ids {
         write_stdin(&server_id, "stop");
+    }
+}
+
+pub fn get_status(server_id: &str) -> ServerStatus {
+    let found = {
+        let locked_processes = SERVER_PROCESS_HASHMAP.lock().unwrap();
+        locked_processes.contains_key(server_id)
+    };
+
+    match found {
+        true => ServerStatus::Online,
+        false => ServerStatus::Offline
     }
 }

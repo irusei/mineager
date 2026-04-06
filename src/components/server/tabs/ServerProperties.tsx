@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import {MinecraftServer} from "../../../types/types.tsx";
+import {FrontendServer} from "../../../types/types.tsx";
 import { Check, X } from "lucide-react";
 import Button from "../../ui/Button.tsx";
 import { invoke } from "@tauri-apps/api/core";
@@ -9,7 +9,7 @@ import { Switch } from "../../ui/Switch.tsx";
 import { Select } from "../../ui/Select.tsx";
 
 interface ServerPropertiesProps { 
-    server: MinecraftServer
+    server: FrontendServer
 }
 
 function getMapFromProperties(propertiesStr: string[]) {
@@ -61,11 +61,11 @@ export function ServerProperties({ server }: ServerPropertiesProps) {
 
     function applyProperties() {
         if (serverProperties != null)
-            invoke('write_properties', { serverId: server.server_id, newProperties: propertiesMapToString(serverProperties) });
+            invoke('write_properties', { serverId: server.server.server_id, newProperties: propertiesMapToString(serverProperties) });
     }
 
     function reloadProperties() {
-        invoke("read_properties_lines", { serverId: server.server_id }).then((p) => {
+        invoke("read_properties_lines", { serverId: server.server.server_id }).then((p) => {
             let properties = p as string[];
             if (properties.length > 0)
                 setServerProperties(getMapFromProperties(properties))
@@ -77,7 +77,7 @@ export function ServerProperties({ server }: ServerPropertiesProps) {
     // load properties on load
     useEffect(() => {
         reloadProperties()
-    }, [server.server_id]);
+    }, [server.server.server_id]);
 
     if (serverProperties === null)
         return (

@@ -1,9 +1,9 @@
 use std::sync::{LazyLock, Mutex};
 
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 use tauri::{Emitter, Manager, WindowEvent};
 
-use crate::{java::{detector::get_jre_version, jre::download_java}, manager::{local_servers, servers::{self, Server, add_server, install_server}}, minecraft::versions::{get_paper_versions, get_vanilla_versions}};
+use crate::{java::{detector::get_jre_version, jre::download_java}, manager::{process, servers::{self, Server, add_server, get_cloned_servers, install_server}}, minecraft::versions::{get_paper_versions, get_vanilla_versions}};
 
 mod minecraft;
 mod manager;
@@ -11,6 +11,12 @@ mod java;
 mod utils;
 
 static MAIN_HANDLE: LazyLock<Mutex<Option<tauri::AppHandle>>> = LazyLock::new(|| { Mutex::new(None) });
+
+#[derive(Serialize, Deserialize, Clone)]
+struct FrontendServer {
+    server: Server,
+    status: process::ServerStatus
+}
 
 fn try_emit<T: Serialize + Clone>(event: &str, payload: T) {
     if let Some(handle) = MAIN_HANDLE.lock().unwrap().as_ref() {
@@ -21,7 +27,16 @@ fn try_emit<T: Serialize + Clone>(event: &str, payload: T) {
 }
 
 fn update_frontend() {
-    try_emit::<Vec<local_servers::LocalServer>>("update-local-servers", local_servers::get_local_servers());
+    let frontend_servers = get_cloned_servers()
+        .iter()
+        .map(|server|
+            FrontendServer {
+                server: server.clone(),
+                status: process::get_status(&server.server_id)
+            })
+        .collect::<Vec<FrontendServer>>();
+
+    try_emit::<Vec<FrontendServer>>("update-local-servers", frontend_servers);
 }
 
 #[tauri::command]
@@ -41,9 +56,6 @@ async fn fetch_versions(server_type: String) -> Vec<String> {
 
 #[tauri::command(async)]
 async fn create_server(server_name: String, server_type: String, version: String) {
-    // return if server exists
-    println!("Creating server: {}", server_name);
-
     // create server
     let server_id: String = uuid::Uuid::new_v4().to_string();
 
@@ -75,18 +87,18 @@ async fn create_server(server_name: String, server_type: String, version: String
 }
 
 #[tauri::command(async)]
-async fn update_local_server(server: local_servers::LocalServer) {
-    local_servers::update_local_server(server).await;
+async fn update_server(server: Server) {
+    servers::update_server(server).await;
 }
 
 #[tauri::command(async)]
 fn start_server(server_id: String) {
-    local_servers::start_local_server(&server_id).expect("Failed to launch server");
+    process::start_server(&server_id).expect("Failed to launch server");
 }
 
 #[tauri::command(async)]
 fn get_stdout(server_id: &str) -> Vec<String> {
-    local_servers::get_stdout(server_id)
+    process::get_stdout(server_id)
 }
 
 #[tauri::command(async)]
@@ -96,7 +108,7 @@ fn set_eula_accepted(server_id: &str, accepted: bool) {
 
 #[tauri::command(async)]
 fn write_stdin(server_id: &str, string: &str) {
-    local_servers::write_stdin(server_id, string);
+    process::write_stdin(server_id, string);
 }
 
 #[tauri::command(async)]
@@ -121,11 +133,11 @@ pub fn run() {
         .plugin(tauri_plugin_opener::init())
         .on_window_event(|_window, event| {
             match event {
-                WindowEvent::CloseRequested { api: _, .. } => local_servers::stop_all_servers(),
+                WindowEvent::CloseRequested { api: _, .. } => process::stop_all_servers(),
                 _ => ()
             }
         })
-        .invoke_handler(tauri::generate_handler![init_window_properties, fetch_versions, create_server, update_local_server, 
+        .invoke_handler(tauri::generate_handler![init_window_properties, fetch_versions, create_server, update_server, 
             start_server, get_stdout, set_eula_accepted, write_stdin, read_properties_lines, write_properties, remove_server])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

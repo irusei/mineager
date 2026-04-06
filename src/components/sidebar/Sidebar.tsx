@@ -1,21 +1,21 @@
 import {Blocks, ChevronDown, Plus, Search} from "lucide-react";
-import {MinecraftServer} from "../../types/types.tsx";
+import {FrontendServer} from "../../types/types.tsx";
 import { SidebarServer } from "./SidebarServer.tsx";
 import {useEffect, useState} from "react";
 import {WebviewWindow} from "@tauri-apps/api/webviewWindow";
 import Button from "../ui/Button.tsx";
 
 export interface SidebarProps {
-    servers: MinecraftServer[],
-    selectedServer: MinecraftServer | null,
-    onSelectedServer: (server: MinecraftServer) => void
+    servers: FrontendServer[],
+    selectedServer: FrontendServer | null,
+    onSelectedServer: (server: FrontendServer) => void
 }
 export default function Sidebar({servers, selectedServer, onSelectedServer}: SidebarProps) {
-    const [filteredServers, setFilteredServers] = useState<MinecraftServer[]>(servers);
+    const [filteredServers, setFilteredServers] = useState<FrontendServer[]>(servers);
     const [filterSearch, setFilterSearch] = useState<string>("");
 
     useEffect(() => {
-        setFilteredServers(servers.filter(server => server.server_name.includes(filterSearch)))
+        setFilteredServers(servers.filter(server => server.server.server_name.includes(filterSearch)))
     }, [filterSearch, servers])
 
     function addServer(event: React.MouseEvent<HTMLButtonElement>) {
@@ -59,7 +59,7 @@ export default function Sidebar({servers, selectedServer, onSelectedServer}: Sid
             </div>
             <div className={"flex flex-col py-0 h-full overflow-y-scroll scrollbar-hide"}>
                 {filteredServers.map((server) => (
-                    <SidebarServer key={server.server_id} server={server} selected={selectedServer?.server_id === server.server_id} onSelected={() => onSelectedServer(server)}/>
+                    <SidebarServer key={server.server.server_id} server={server} selected={selectedServer?.server.server_id === server.server.server_id} onSelected={() => onSelectedServer(server)}/>
                 ))}
             </div>
 
