@@ -1,6 +1,6 @@
 [package]
 name = "mineager"
-version = "0.2.0"
+version = "0.2.1"
 description = "a minecraft server manager"
 authors = ["shiiru"]
 edition = "2021"
