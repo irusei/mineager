@@ -239,3 +239,14 @@ pub fn update_local_server(server: LocalServer) {
 
     update_frontend();
 }
+
+pub fn stop_all_servers() {
+    let server_ids: Vec<String> = {
+        let locked_processes = SERVER_PROCESS_HASHMAP.lock().unwrap();
+        locked_processes.keys().cloned().collect()
+    };
+
+    for server_id in server_ids {
+        write_stdin(&server_id, "stop");
+    }
+}

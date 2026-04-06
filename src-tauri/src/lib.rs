@@ -1,7 +1,7 @@
 use std::sync::{LazyLock, Mutex};
 
 use serde::Serialize;
-use tauri::{Emitter, Manager};
+use tauri::{Emitter, Manager, WindowEvent};
 
 use crate::{java::{detector::get_jre_version, jre::download_java}, manager::{local_servers, servers::{self, Server, add_server, install_server}}, minecraft::versions::{get_paper_versions, get_vanilla_versions}};
 
@@ -114,6 +114,12 @@ fn write_properties(server_id: &str, new_properties: &str) {
 pub fn run() {
     tauri::Builder::default()
         .plugin(tauri_plugin_opener::init())
+        .on_window_event(|_window, event| {
+            match event {
+                WindowEvent::CloseRequested { api: _, .. } => local_servers::stop_all_servers(),
+                _ => ()
+            }
+        })
         .invoke_handler(tauri::generate_handler![init_window_properties, fetch_versions, create_server, update_local_server, 
             start_server, get_stdout, set_eula_accepted, write_stdin, read_properties_lines, write_properties])
         .run(tauri::generate_context!())
