@@ -95,10 +95,10 @@ pub fn save_servers() {
     storage_file.write_all(json.as_bytes()).expect("Failed to write json");
 }
 
-pub fn add_server(server: Server) {
+pub fn add_server(server: &Server) {
     {
         let mut servers = SERVERS.lock().unwrap();
-        servers.push(server);
+        servers.push(server.clone());
     }
     save_servers();
     update_frontend();
@@ -131,7 +131,7 @@ pub fn set_eula_accepted(server_id: &str, accepted: bool) {
     eula_file.write_all(format!("eula={}", accepted.to_string()).as_bytes()).expect("Cannot write to eula.txt");
 }
 
-pub async fn install_server(server: Server) -> Result<(), Box<dyn std::error::Error>> {
+pub async fn install_server(server: &Server) -> Result<(), Box<dyn std::error::Error>> {
     let option_server_path = get_server_path(&server.server_id);
     let mut server_path: std::path::PathBuf;
 
@@ -168,10 +168,10 @@ pub async fn install_server(server: Server) -> Result<(), Box<dyn std::error::Er
         .write_all(&jar_file.unwrap())?;
 
     Ok(())
-
+    
 }
 
-pub async fn update_server(new_server: Server) {
+pub async fn update_server(new_server: &Server) {
     let needs_reinstall: bool = {
         let servers = SERVERS.lock().unwrap();
         if let Some(s) = servers.iter().find(|s| s.server_id == new_server.server_id) {
@@ -192,16 +192,16 @@ pub async fn update_server(new_server: Server) {
 
         let new_server = Server {
             server_id: new_server.server_id.clone(),
-            server_name: new_server.server_name,
-            server_type: new_server.server_type,
-            server_version: new_server.server_version,
-            launch_args: new_server.launch_args,
+            server_name: new_server.server_name.clone(),
+            server_type: new_server.server_type.clone(),
+            server_version: new_server.server_version.clone(),
+            launch_args: new_server.launch_args.clone(),
             java_path: java_path, // change the java path here
-            allocated_ram: new_server.allocated_ram
+            allocated_ram: new_server.allocated_ram.clone()
         };
 
         {
-            match install_server(new_server.clone()).await {
+            match install_server(&new_server).await {
                 Ok(_) => {
                     let mut servers = SERVERS.lock().unwrap();
                     if let Some(index) = servers.iter().position(|s| s.server_id == new_server.server_id) {
@@ -215,13 +215,13 @@ pub async fn update_server(new_server: Server) {
         let mut servers = SERVERS.lock().unwrap();
         if let Some(index) = servers.iter().position(|s| s.server_id == new_server.server_id) {
             servers[index] = Server {
-                server_id: new_server.server_id,
-                server_name: new_server.server_name,
-                server_type: new_server.server_type,
-                server_version: new_server.server_version,
-                launch_args: new_server.launch_args,
-                java_path: new_server.java_path,
-                allocated_ram: new_server.allocated_ram
+                server_id: new_server.server_id.clone(),
+                server_name: new_server.server_name.clone(),
+                server_type: new_server.server_type.clone(),
+                server_version: new_server.server_version.clone(),
+                launch_args: new_server.launch_args.clone(),
+                java_path: new_server.java_path.clone(),
+                allocated_ram: new_server.allocated_ram.clone()
             };
         }
     }

@@ -76,11 +76,11 @@ async fn create_server(server_name: String, server_type: String, version: String
     };
 
     // add server
-    add_server(server.clone());
+    add_server(&server);
 
     // install server
     try_emit("update-create-button-text", "Installing server...");
-    match install_server(server).await {
+    match install_server(&server).await {
         Ok(_) => update_frontend(),
         Err(ref err) => try_emit::<String>("alert", format!("{}", err)),
     }
@@ -88,12 +88,12 @@ async fn create_server(server_name: String, server_type: String, version: String
 
 #[tauri::command(async)]
 async fn update_server(server: Server) {
-    servers::update_server(server).await;
+    servers::update_server(&server).await;
 }
 
 #[tauri::command(async)]
-fn start_server(server_id: String) {
-    process::start_server(&server_id).expect("Failed to launch server");
+fn start_server(server_id: &str) {
+    process::start_server(server_id).expect("Failed to launch server");
 }
 
 #[tauri::command(async)]
