@@ -74,6 +74,9 @@ async fn create_server(server_name: String, server_type: String, version: String
         launch_args: String::from(""),
         allocated_ram: String::from("4096M"),
         java_path: java_path,
+        backups: Vec::new(),
+        auto_backups: false,
+        auto_backup_interval: String::from("0 * * * *")
     };
 
     // add server
