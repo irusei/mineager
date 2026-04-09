@@ -26,23 +26,24 @@ fn try_emit<T: Serialize + Clone>(event: &str, payload: T) {
     }
 }
 
-fn update_frontend() {
-    let frontend_servers = get_cloned_servers()
+fn get_frontend_servers() -> Vec<FrontendServer> {
+    get_cloned_servers()
         .iter()
         .map(|server|
             FrontendServer {
                 server: server.clone(),
                 status: process::get_status(&server.server_id)
             })
-        .collect::<Vec<FrontendServer>>();
-
-    try_emit::<Vec<FrontendServer>>("update-local-servers", frontend_servers);
+        .collect::<Vec<FrontendServer>>()
+}
+fn update_frontend() {
+    try_emit::<Vec<FrontendServer>>("update-local-servers", get_frontend_servers());
 }
 
 #[tauri::command]
-fn init_window_properties(app: tauri::AppHandle) {
+fn init_window_properties(app: tauri::AppHandle) -> Vec<FrontendServer> {
     *MAIN_HANDLE.lock().unwrap() = Some(app);
-    update_frontend();
+    get_frontend_servers()
 }
 
 #[tauri::command]
