@@ -13,6 +13,10 @@ use crate::utils::path::get_core_path;
 const SERVER_STORAGE_FILE: &str = "servers.json";
 static SERVERS: LazyLock<Mutex<Vec<Server>>> = LazyLock::new(|| Mutex::new(read_servers()));
 
+fn default_auto_backup_interval() -> String {
+    "0 * * * *".to_string()
+}
+
 #[derive(Deserialize, Serialize, Clone)]
 pub(crate) struct Server {
     pub(crate) server_id: String,
@@ -21,7 +25,15 @@ pub(crate) struct Server {
     pub(crate) server_version: String,
     pub(crate) launch_args: String,
     pub(crate) allocated_ram: String,
-    pub(crate) java_path: String
+    pub(crate) java_path: String,
+
+    // backups
+    #[serde(default)]
+    pub(crate) backups: Vec<String>,
+    #[serde(default)]
+    pub(crate) auto_backups: bool,
+    #[serde(default = "default_auto_backup_interval")]
+    pub(crate) auto_backup_interval: String, // crontab notation
 }
 
 pub fn get_cloned_servers() -> Vec<Server> {
@@ -197,7 +209,10 @@ pub async fn update_server(new_server: &Server) {
             server_version: new_server.server_version.clone(),
             launch_args: new_server.launch_args.clone(),
             java_path: java_path, // change the java path here
-            allocated_ram: new_server.allocated_ram.clone()
+            allocated_ram: new_server.allocated_ram.clone(),
+            backups: new_server.backups.clone(),
+            auto_backups: new_server.auto_backups.clone(),
+            auto_backup_interval: new_server.auto_backup_interval.clone()
         };
 
         {
@@ -221,7 +236,10 @@ pub async fn update_server(new_server: &Server) {
                 server_version: new_server.server_version.clone(),
                 launch_args: new_server.launch_args.clone(),
                 java_path: new_server.java_path.clone(),
-                allocated_ram: new_server.allocated_ram.clone()
+                allocated_ram: new_server.allocated_ram.clone(),
+                backups: new_server.backups.clone(),
+                auto_backups: new_server.auto_backups.clone(),
+                auto_backup_interval: new_server.auto_backup_interval.clone()
             };
         }
     }
