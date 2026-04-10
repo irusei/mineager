@@ -7,46 +7,28 @@ interface SidebarServerProps {
     onSelected: () => void
 }
 
-// export function SidebarServer({ server, selected, onSelected }: SidebarServerProps) {
-//     return (
-//         <div onClick={() => onSelected()} className={"p-4 pl-6 w-full rounded-lg flex flex-col hover:cursor-pointer bg-zinc-800 hover:outline-orange-500 hover:outline-1 transition-all " + (selected ? "outline-1 outline-orange-500" : "")}>
-//             <div className={"flex flex-row justify-between"}>
-//                 <h1 className={"text-gray-300"}>{server.server_name}</h1>
-//                 {/* status */}
-//                 <div className={"flex flex-row items-center space-x-2"}>
-//                     <div className={`rounded-xl w-2 h-2 bg-red ${getStatusColor(server.status)}`}></div>
-//                     <p className={"text-gray-400"}>{server.status}</p>
-//                 </div>
-//             </div>
-//             <div>
-//                 <p className={"text-gray-400"}>{server.server_version}</p>
-//             </div>
-//             {/* players, ram
-//             <div className={"flex flex-row items-center space-x-2 justify-between"}>
-//                 {server.status != "Offline" && <>
-//                 <div className={"flex flex-row items-center space-x-2"}>
-//                     <User color={"#99a1af"} className={"w-4 h-4"}/>
-//                     <p className={"text-gray-400"}>{players} online</p>
-//                 </div>
-//                 <div className={"flex flex-row items-center space-x-2"}>
-//                     <MemoryStick color={"#99a1af"} className={"w-4 h-4"}/>
-//                     <p className={"text-gray-400"}>{ram / 1024}MB</p>
-//                 </div>
-//                 </>}
-//             </div> */}
-//         </div>
-//     )
-// }
+export function SidebarServer({ server, selected, onSelected }: SidebarServerProps) {
+    const statusColor = getStatusColor(server.status);
 
-export function SidebarServer({server, selected, onSelected}: SidebarServerProps) {
     return (
-        <div onClick={() => onSelected()} className={"w-full"}>
-            <div className={"px-6 py-2 flex flex-row items-center justify-between hover:bg-orange-400 transition-all font-medium " + (selected ? "bg-orange-500" : "")}>
-                <div className={"flex flex-row items-center space-x-2"}>
-                    <div className={`rounded-xl w-2 h-2 bg-red ${getStatusColor(server.status)}`}></div>
-                    <p className={"text-white"}>{server.server.server_name}</p>
+        <div
+            onClick={() => onSelected()}
+            className={`group relative bg-bg-2 rounded-md cursor-pointer
+                       transition-all p-2
+                       ${selected
+                           ? 'border-orange-500/50 bg-orange-500/5'
+                           : ''}`}
+        >
+            <div className="flex gap-3 items-center space-x-1">
+                <div className={`w-2 h-2 rounded-full shrink-0
+                                ${statusColor}`} />
+
+                <div className="flex-1 min-w-0">
+                    <div className="flex justify-between gap-2">
+                        <h3 className="font-medium text-text text-sm truncate">{server.server.server_name}</h3>
+                        <span className={"text-xs text-text-2"}>v{server.server.server_version}</span>
+                    </div>
                 </div>
-                <p className={"transition-all font-normal " + (selected ? "text-gray-300" : "text-zinc-600")}>{server.server.server_version}</p>
             </div>
         </div>
     )

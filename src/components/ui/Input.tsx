@@ -11,9 +11,9 @@ interface InputProps {
 export function Input({ className, type, value, placeholder, onChange }: InputProps) {
     return (
         <input type={type} className={clsx(
-            "py-2 px-2 rounded-lg bg-zinc-800 focus:outline-none placeholder-gray-500 text-gray-300",
+            "py-2 px-3 rounded-lg bg-bg-2 border border-border focus:outline-none focus:border-border-2 focus:ring-1 focus:ring-orange-500/50 placeholder-text-2 text-text",
             className
-        )} placeholder={placeholder ?? ""} 
+        )} placeholder={placeholder ?? ""}
             value={value}
             onChange={(event) => onChange?.(event)}
         />
