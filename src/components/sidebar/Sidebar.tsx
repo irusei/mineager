@@ -1,54 +1,48 @@
-import {Blocks, ChevronDown, Plus, Search} from "lucide-react";
-import {FrontendServer} from "../../types/types.tsx";
+import { Blocks, ChevronDown, Plus, Search } from "lucide-react";
+import { FrontendServer } from "../../types/types.tsx";
 import { SidebarServer } from "./SidebarServer.tsx";
-import {useEffect, useState} from "react";
-import {WebviewWindow} from "@tauri-apps/api/webviewWindow";
+import { useEffect, useState } from "react";
 import Button from "../ui/Button.tsx";
 
 export interface SidebarProps {
     servers: FrontendServer[],
     selectedServer: FrontendServer | null,
-    onSelectedServer: (server: FrontendServer) => void
+    onSelectedServer: (server: FrontendServer) => void,
+    onAddServer: () => void,
 }
-export default function Sidebar({servers, selectedServer, onSelectedServer}: SidebarProps) {
+export default function Sidebar({ servers, selectedServer, onSelectedServer, onAddServer }: SidebarProps) {
     const [filteredServers, setFilteredServers] = useState<FrontendServer[]>(servers);
     const [filterSearch, setFilterSearch] = useState<string>("");
 
     useEffect(() => {
-        setFilteredServers(servers.filter(server => server.server.server_name.includes(filterSearch)))
+        setFilteredServers(servers.filter(server =>
+            server.server.server_name.toLowerCase().includes(filterSearch.toLowerCase())
+        ))
     }, [filterSearch, servers])
 
-    function addServer(event: React.MouseEvent<HTMLButtonElement>) {
-        event.preventDefault()
-        const webviewWindow = new WebviewWindow('add-server-window', {
-            url: "/add-server",
-            width: 400,
-            height: 475,
-            x: 0,
-            center: true,
-            y: 0,
-            visible: false,
-        });
-
-        webviewWindow.once('tauri://webview-created', () => {
-            setTimeout(() => webviewWindow.show(), 100)
-        })
+    function handleAddServer() {
+        onAddServer();
     }
 
     return (
-        <div className={"h-screen min-w-75 w-75 border-r border-zinc-800 bg-neutral-900 flex flex-col"}>
-            <div className={"border-b border-zinc-800 h-15"}>
-                <div className={"p-4 flex flex-row space-x-2 items-center font-medium text-xl text-gray-300"}>
-                    <Blocks className={"text-orange-400 "}/>
-                    <p>mineager</p>
+        <div className="h-screen w-64 bg-bg-2 border-r border-border flex flex-col">
+            <div className="p-4 border-b border-border">
+                <div className="flex items-center gap-2 h-8">
+                    <span className="font-semibold text-lg text-text">mineager</span>
                 </div>
             </div>
 
-            {/* Servers */}
-            <div className={"border-zinc-800 border-t p-3 space-y-3"}>
-                <div className={"w-full flex flex-row rounded-lg text-gray-400 p-2 bg-zinc-800 gap-x-2 text-lg items-center"}>
-                    <Search color={"#6a7282"} className={"ml-2 w-6 h-6 block"}/>
-                    <input type={"text"} className={"focus:outline-none placeholder-gray-500"} placeholder={"Search servers..."} value={filterSearch} onChange={(event) => setFilterSearch(event.target.value)}/>
+            <div className="p-2 border-b border-border">
+                <div className="relative">
+                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-text-2" />
+                    <input
+                        type="text"
+                        className="w-full pl-9 pr-3 py-2 bg-bg-2 border border-border rounded-md
+                                   text-text placeholder-text-2 text-sm focus:outline-none focus:ring-1 focus:ring-orange-500/20"
+                        placeholder="Search servers"
+                        value={filterSearch}
+                        onChange={(event) => setFilterSearch(event.target.value)}
+                    />
                 </div>
             </div>
             <div className={"flex"}>
@@ -57,16 +51,21 @@ export default function Sidebar({servers, selectedServer, onSelectedServer}: Sid
                     <p>Servers</p>
                 </div>
             </div>
-            <div className={"flex flex-col py-0 h-full overflow-y-scroll scrollbar-hide"}>
+            <div className="flex-1 overflow-y-auto scrollbar-hide p-2">
                 {filteredServers.map((server) => (
-                    <SidebarServer key={server.server.server_id} server={server} selected={selectedServer?.server.server_id === server.server.server_id} onSelected={() => onSelectedServer(server)}/>
+                    <SidebarServer
+                        key={server.server.server_id}
+                        server={server}
+                        selected={selectedServer?.server.server_id === server.server.server_id}
+                        onSelected={() => onSelectedServer(server)}
+                    />
                 ))}
             </div>
 
-            <div className={"border-zinc-800 border-t p-3 space-y-3"}>
-                <Button onClick={(event) => addServer(event)} color={"orange"}>
-                    <Plus className={"w-6 h-6 block"}/>
-                    <p>New Server</p>
+            <div className="p-3 border-t border-border">
+                <Button onClick={handleAddServer} color="orange" className="gap-2">
+                    <Plus className="w-4 h-4" />
+                    <span className="text-sm">New Server</span>
                 </Button>
             </div>
         </div>

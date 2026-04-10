@@ -4,22 +4,16 @@ interface ButtonProps {
     onClick?: (event: React.MouseEvent<HTMLButtonElement, MouseEvent>) => void;
     className?: string;
     children?: Array<React.ReactElement>;
-    color: "red" | "blue" | "orange",
-    disabled?: boolean,
-    title?: string,
+    color: "red" | "blue" | "orange";
+    disabled?: boolean;
+    title?: string;
 }
 
 export default function Button({ onClick, children, color, className, disabled, title }: ButtonProps) {
-    const textClass: Record<ButtonProps["color"], string> = {
-        red: "text-red-400",
-        blue: "text-blue-400",
-        orange: "text-orange-400",
-    };
-
-    const outlineClass: Record<ButtonProps["color"], string> = {
-        red: "outline-red-500 hover:bg-red-500",
-        blue: "outline-blue-500 hover:bg-blue-500",
-        orange: "outline-orange-500 hover:bg-orange-500",
+    const baseClasses: Record<ButtonProps["color"], string> = {
+        red: "bg-red-500/10 text-red-400 border-red-500/20 hover:bg-red-500/20",
+        blue: "bg-blue-500/10 text-blue-400 border-blue-500/20 hover:bg-blue-500/20",
+        orange: "bg-orange-500/10 text-orange-400 border-orange-500/20 hover:bg-orange-500/20",
     };
 
     function _onClick(event: React.MouseEvent<HTMLButtonElement, MouseEvent>) {
@@ -32,14 +26,13 @@ export default function Button({ onClick, children, color, className, disabled, 
     return (
         <button onClick={(event) => _onClick(event)} disabled={disabled ?? false} title={title ?? ""}
             className={
-                clsx("flex flex-row gap-x-3 py-2 items-center justify-center outline-1 rounded-lg hover:cursor-pointer transition-all font-medium", 
-                textClass[color], 
-                outlineClass[color],
+                clsx("flex flex-row gap-x-3 py-2 items-center justify-center outline-1 rounded-lg transition-all font-medium border",
+                baseClasses[color],
                 className,
                 (className && className.includes("w-")) ? "" : "w-full",
                 disabled
                     ? "opacity-50 cursor-not-allowed pointer-events-none"
-                    : "hover:cursor-pointer hover:text-white"
+                    : "hover:cursor-pointer"
             )}>
             {children}
         </button>

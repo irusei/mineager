@@ -1,14 +1,23 @@
 @import "tailwindcss";
 
+@theme {
+  --color-border: #333;
+  --color-border-2: #444;
+  --color-text: #e5e5e5;
+  --color-text-2: #6a6a6a;
+  --color-bg-1: #1a1a1a;
+  --color-bg-2: #242424;
+}
 body {
-    font-family: "Segoe UI";
+    font-family: "Segoe UI", -apple-system, BlinkMacSystemFont, sans-serif;
+    background-color: --color-bg-1;
 }
 
 .scrollbar-hide {
-  -ms-overflow-style: none; 
-  scrollbar-width: none;     
+  -ms-overflow-style: none;
+  scrollbar-width: none;
 }
 
 .scrollbar-hide::-webkit-scrollbar {
-  display: none;            
+  display: none;
 }
