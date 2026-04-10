@@ -2,7 +2,7 @@ import { FileText } from "lucide-react";
 
 export function NoPropertiesFound() {
     return (
-        <div className="flex-1 flex flex-col items-center justify-center min-h-100 bg-bg-2">
+        <div className="flex-1 flex flex-col items-center justify-center min-h-120 bg-bg-2">
             <div className="w-16 h-16 rounded-lg bg-orange-500/10 flex items-center justify-center mb-4">
                 <FileText className="w-8 h-8 text-orange-500" />
             </div>
