@@ -8,7 +8,7 @@ use crate::java::jre::download_java;
 use crate::java::detector::get_jre_version;
 use crate::minecraft::jars;
 use crate::{try_emit, update_frontend};
-use crate::utils::path::get_core_path;
+use crate::utils::path::{get_core_path, sanitize_name};
 
 const SERVER_STORAGE_FILE: &str = "servers.json";
 static SERVERS: LazyLock<Mutex<Vec<Server>>> = LazyLock::new(|| Mutex::new(read_servers()));
@@ -204,7 +204,7 @@ pub async fn update_server(new_server: &Server) {
 
         let new_server = Server {
             server_id: new_server.server_id.clone(),
-            server_name: new_server.server_name.clone(),
+            server_name: sanitize_name(&new_server.server_name),
             server_type: new_server.server_type.clone(),
             server_version: new_server.server_version.clone(),
             launch_args: new_server.launch_args.clone(),
@@ -231,7 +231,7 @@ pub async fn update_server(new_server: &Server) {
         if let Some(index) = servers.iter().position(|s| s.server_id == new_server.server_id) {
             servers[index] = Server {
                 server_id: new_server.server_id.clone(),
-                server_name: new_server.server_name.clone(),
+                server_name: sanitize_name(&new_server.server_name),
                 server_type: new_server.server_type.clone(),
                 server_version: new_server.server_version.clone(),
                 launch_args: new_server.launch_args.clone(),
