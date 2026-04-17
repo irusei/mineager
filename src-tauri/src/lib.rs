@@ -3,7 +3,7 @@ use std::sync::{LazyLock, Mutex};
 use serde::{Deserialize, Serialize};
 use tauri::{Emitter, Manager, WindowEvent};
 
-use crate::{java::{detector::get_jre_version, jre::download_java}, manager::{process, servers::{self, Server, add_server, get_cloned_servers, install_server}}, minecraft::versions::{get_paper_versions, get_vanilla_versions}};
+use crate::{java::{detector::get_jre_version, jre::download_java}, manager::{process, servers::{self, Server, add_server, get_cloned_servers, install_server}}, minecraft::versions::{get_paper_versions, get_vanilla_versions}, utils::path::sanitize_name};
 
 mod minecraft;
 mod manager;
@@ -68,7 +68,7 @@ async fn create_server(server_name: String, server_type: String, version: String
 
     let server = Server {
         server_id,
-        server_name,
+        server_name: sanitize_name(&server_name),
         server_type: server_type.clone(), // avoid moving
         server_version: version,
         launch_args: String::from(""),

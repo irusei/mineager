@@ -4,3 +4,7 @@ pub fn get_core_path() -> std::path::PathBuf {
 
     path
 }
+
+pub fn sanitize_name(name: &str) -> String {
+    sanitize_filename::sanitize(name)
+}
