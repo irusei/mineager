@@ -211,7 +211,7 @@ pub async fn update_server(new_server: &Server) {
             java_path: java_path, // change the java path here
             allocated_ram: new_server.allocated_ram.clone(),
             backups: new_server.backups.clone(),
-            auto_backups: new_server.auto_backups.clone(),
+            auto_backups: new_server.auto_backups,
             auto_backup_interval: new_server.auto_backup_interval.clone()
         };
 
@@ -238,7 +238,7 @@ pub async fn update_server(new_server: &Server) {
                 java_path: new_server.java_path.clone(),
                 allocated_ram: new_server.allocated_ram.clone(),
                 backups: new_server.backups.clone(),
-                auto_backups: new_server.auto_backups.clone(),
+                auto_backups: new_server.auto_backups,
                 auto_backup_interval: new_server.auto_backup_interval.clone()
             };
         }
