@@ -1,4 +1,4 @@
-import { Blocks, ChevronDown, Plus, Search } from "lucide-react";
+import { ChevronDown, Plus, Search } from "lucide-react";
 import { FrontendServer } from "../../types/types.tsx";
 import { SidebarServer } from "./SidebarServer.tsx";
 import { useEffect, useState } from "react";
