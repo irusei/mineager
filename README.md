@@ -24,6 +24,7 @@
 <li>Automatic Java version manager</li>
 <li>Configuration & server.properties management</li>
 <li>Server console support</li>
+<li>Server backup management</li>
 </ul>
 
 <!-- GETTING STARTED -->
