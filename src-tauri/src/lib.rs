@@ -3,7 +3,7 @@ use std::sync::{LazyLock, Mutex};
 use serde::{Deserialize, Serialize};
 use tauri::{Emitter, Manager, WindowEvent};
 
-use crate::{java::{detector::get_jre_version, jre::download_java}, manager::{backups, process, servers::{get_cloned_servers, Server}}, minecraft::versions::{get_paper_versions, get_vanilla_versions}, utils::path::sanitize_name};
+use crate::{java::{detector::get_jre_version, jre::download_java}, manager::{backups, process, servers::{get_cloned_servers, Server}, cron}, minecraft::versions::{get_paper_versions, get_vanilla_versions}, utils::path::sanitize_name};
 
 mod minecraft;
 mod manager;
@@ -97,7 +97,16 @@ async fn update_server(server: Server) {
 
 #[tauri::command(async)]
 fn start_server(server_id: &str) {
+    let servers = get_cloned_servers();
+    let server = servers.iter().find(|s| s.server_id == server_id).cloned();
     process::start_server(server_id).expect("Failed to launch server");
+    if let Some(server) = server {
+        if server.auto_backups {
+            if let Err(e) = backups::create_backup(&server) {
+                eprintln!("Failed to create backup on startup for server {}: {}", server.server_id, e);
+            }
+        }
+    }
 }
 
 #[tauri::command(async)]
@@ -163,9 +172,48 @@ async fn restore_backup(server_id: &str, backup_name: &str) -> Result<(), String
     Ok(())
 }
 
+#[tauri::command]
+async fn update_auto_backup(server_id: &str, enabled: bool, interval: String) -> Result<(), String> {
+    let servers = get_cloned_servers();
+    if let Some(server) = servers.iter().find(|s| s.server_id == server_id) {
+        server.set_auto_backup(enabled, interval.clone());
+    }
+    crate::manager::cron::add_backup_job(server_id, &interval).await;
+    Ok(())
+}
+
+#[tauri::command]
+fn open_server_folder(server_id: &str) {
+    use tauri_plugin_opener::OpenerExt;
+    let servers = get_cloned_servers();
+    if let Some(server) = servers.iter().find(|s| s.server_id == server_id) {
+        let path = server.get_server_path();
+        if let Some(handle) = MAIN_HANDLE.lock().unwrap().as_ref() {
+            let _ = handle.app_handle().opener().open_path(path.to_string_lossy().to_string(), None::<&str>);
+        }
+    }
+}
+
+#[tauri::command]
+fn open_backup_folder(server_id: &str) {
+    use tauri_plugin_opener::OpenerExt;
+    let servers = get_cloned_servers();
+    if let Some(server) = servers.iter().find(|s| s.server_id == server_id) {
+        let path = backups::ensure_backup_path(&server);
+        if let Some(handle) = MAIN_HANDLE.lock().unwrap().as_ref() {
+            let _ = handle.app_handle().opener().open_path(path.to_string_lossy().to_string(), None::<&str>);
+        }
+    }
+}
+
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
+    // run cron jobs
+    tauri::async_runtime::spawn(async {
+        cron::init_backup_jobs().await;
+    });
+
     tauri::Builder::default()
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_dialog::init())
@@ -177,7 +225,7 @@ pub fn run() {
         })
         .invoke_handler(tauri::generate_handler![init_window_properties, fetch_versions, create_server, update_server, 
             start_server, get_stdout, set_eula_accepted, write_stdin, read_properties_lines, write_properties, remove_server,
-            get_backups, create_backup, delete_backup, restore_backup])
+            get_backups, create_backup, delete_backup, restore_backup, update_auto_backup, open_server_folder, open_backup_folder])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
 }

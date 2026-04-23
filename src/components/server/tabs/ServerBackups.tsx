@@ -1,9 +1,11 @@
 import { useEffect, useState } from "react";
 import { FrontendServer } from "../../../types/types.tsx";
 import { invoke } from "@tauri-apps/api/core";
-import { FolderArchive, Download, Trash2, Loader2 } from "lucide-react";
+import { FolderArchive, Download, Trash2, Loader2, Settings, FolderOpen } from "lucide-react";
 import Button from "../../ui/Button.tsx";
 import { SettingContainer } from "../../ui/SettingContainer.tsx";
+import { Switch } from "../../ui/Switch.tsx";
+import { Input } from "../../ui/Input.tsx";
 import { ConfirmModal } from "../../ui/Modal.tsx";
 
 interface ServerBackupsProps {
@@ -20,6 +22,8 @@ export function ServerBackups({ server }: ServerBackupsProps) {
     const [showLoading, setShowLoading] = useState(false);
     const [showDeleteModal, setShowDeleteModal] = useState<string | null>(null);
     const [showRestoreModal, setShowRestoreModal] = useState<string | null>(null);
+    const [autoBackups, setAutoBackups] = useState(server.server.auto_backups);
+    const [cronInterval, setCronInterval] = useState(server.server.auto_backup_interval);
 
     async function loadBackups() {
         const result = await invoke("get_backups", { serverId: server.server.server_id }) as BackupEntry[];
@@ -33,11 +37,32 @@ export function ServerBackups({ server }: ServerBackupsProps) {
         setShowLoading(false);
     }
 
+    async function toggleAutoBackups() {
+        setAutoBackups(!autoBackups);
+        await invoke("update_auto_backup", {
+            serverId: server.server.server_id,
+            enabled: !autoBackups,
+            interval: cronInterval
+        });
+    }
+
+    async function updateCronInterval() {
+        await invoke("update_auto_backup", {
+            serverId: server.server.server_id,
+            enabled: autoBackups,
+            interval: cronInterval
+        });
+    }
+
     async function doDeleteBackup() {
         if (!showDeleteModal) return;
         await invoke("delete_backup", { serverId: server.server.server_id, backupName: showDeleteModal });
         setShowDeleteModal(null);
         await loadBackups();
+    }
+
+    async function openBackupFolder() {
+        await invoke("open_backup_folder", { serverId: server.server.server_id });
     }
 
     async function doRestoreBackup() {
@@ -57,8 +82,8 @@ export function ServerBackups({ server }: ServerBackupsProps) {
 
     function formatSize(bytes: number): string {
         const KB = 1024;
-        const MB = KB * 1024;
-        const GB = MB * 1024;
+        const MB = KB * KB;
+        const GB = MB * KB;
         if (bytes < KB) return bytes + " B";
         if (bytes < MB) return (bytes / KB).toFixed(1) + " KB";
         if (bytes < GB) return (bytes / MB).toFixed(1) + " MB";
@@ -71,12 +96,11 @@ export function ServerBackups({ server }: ServerBackupsProps) {
 
     return (
         <div className="flex-1 h-full min-h-120 max-h-120 bg-bg-2 flex flex-col">
-            <div className="relative flex flex-col flex-1 overflow-hidden p-3">
+            <div className="relative flex flex-col flex-1 overflow-hidden p-3 overflow-y-auto scrollbar-hide">
                 <div className="flex items-center gap-2 mb-3">
-                    <FolderArchive className="w-5 h-5 text-orange-500" />
-                    <p className="text-base font-semibold text-orange-500">Backups</p>
+                    <Settings className="w-5 h-5 text-orange-500" />
+                    <p className="text-base font-semibold text-orange-500">Backup Settings</p>
                 </div>
-
                 <div className="mb-4">
                     <SettingContainer name="Create Backup" description="Create a backup of the server directory.">
                         <Button onClick={createBackup} className="w-1/2" color="orange" disabled={showLoading}>
@@ -84,9 +108,38 @@ export function ServerBackups({ server }: ServerBackupsProps) {
                             <span>Create Backup</span>
                         </Button>
                     </SettingContainer>
+                    <SettingContainer name="Auto Backups" description="Automatically backup the server at a set interval.">
+                        <div className="flex items-center gap-3">
+                            <Switch checked={autoBackups} onChecked={toggleAutoBackups} />
+                        </div>
+                    </SettingContainer>
+                    {autoBackups && (
+                        <div className="mt-2">
+                            <SettingContainer name="Backup Interval" description="Cron expression for backup schedule (0 0 * * * * for every hour, format: sec min hour dom month dow)">
+                                <div className="flex items-center gap-2">
+                                    <Input
+                                        type="text"
+                                        placeholder="0 0 * * * *"
+                                        value={cronInterval}
+                                        onChange={(e) => setCronInterval(e.target.value)}
+                                        onBlur={updateCronInterval}
+                                        className="flex-1"
+                                    />
+                                </div>
+                            </SettingContainer>
+                        </div>
+                    )}
                 </div>
-
-                <div className="flex-1 overflow-y-auto scrollbar-hide space-y-2">
+                <div className="flex items-center justify-between gap-2 mb-3">
+                    <div className="flex items-center gap-2">
+                        <FolderArchive className="w-5 h-5 text-orange-500" />
+                        <p className="text-base font-semibold text-orange-500">Backups</p>
+                    </div>
+                    <Button onClick={openBackupFolder} color="orange" className="w-auto py-1.5 px-2 gap-1">
+                        <FolderOpen className="w-4 h-4" /><></>
+                    </Button>
+                </div>
+                <div className="flex-1 space-y-2">
                     {backups.length === 0 && (
                         <p className="text-text-2 text-sm text-center py-4">No backups yet</p>
                     )}

@@ -21,10 +21,8 @@ pub fn ensure_backup_path(server: &Server) -> PathBuf {
     let mut path = get_core_path();
     path.push("backups");
     path.push(server.server_name.clone());
-    
     fs::create_dir_all(&path).unwrap();
-
-    return path;
+    path
 }
 
 #[derive(Serialize)]

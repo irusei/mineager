@@ -14,7 +14,7 @@ const SERVER_STORAGE_FILE: &str = "servers.json";
 static SERVERS: LazyLock<Mutex<Vec<Server>>> = LazyLock::new(|| Mutex::new(read_servers()));
 
 fn default_auto_backup_interval() -> String {
-    "0 * * * *".to_string()
+    "0 0 * * * *".to_string()
 }
 
 #[derive(Deserialize, Serialize, Clone)]
@@ -264,6 +264,20 @@ impl Server {
         if fs::exists(&path).unwrap() {
             fs::remove_dir_all(path).unwrap();
         }
+    }
+ 
+    pub fn set_auto_backup(&self, enabled: bool, interval: String) {
+        {
+            let mut servers = SERVERS.lock().unwrap();
+            if let Some(index) = servers.iter().position(|s| s.server_id == self.server_id) {
+                let mut server = servers[index].clone();
+                server.auto_backups = enabled;
+                server.auto_backup_interval = interval;
+                servers[index] = server;
+            }
+        }
+        save_servers();
+        update_frontend();
     }
 }
 
