@@ -13,7 +13,7 @@
 
 
 ## Disclaimer
-> Although the app is functional, it is under heavy development and almost certainly will be unstable. Updates may introduce breaking changes and render the application unable to launch.
+> Although the app is functional, it is under heavy development and almost certainly will be unstable.
 
 <!-- ABOUT THE PROJECT -->
 ## About The Project
