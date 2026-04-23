@@ -29,10 +29,19 @@ async fn get_or_create_scheduler() -> Result<Arc<JobScheduler>, Box<dyn std::err
     Ok(scheduler)
 }
 
-pub async fn remove_backup_job(uuid: &Uuid) {
-    let scheduler = get_or_create_scheduler().await.unwrap();
-    let _ = scheduler.remove(uuid).await;
+pub async fn remove_backup_job(server_id: &str) {
+    let uuid = {
+        JOB_IDS.lock().unwrap().iter().filter(|j| j.0 == server_id).map(|j| j.1.clone()).collect::<Vec<Uuid>>()
+    };
+
+    if uuid.len() > 0 {
+        println!("Removing backup job for server id {server_id}");
+        JOB_IDS.lock().unwrap().remove(server_id);
+        let scheduler = get_or_create_scheduler().await.unwrap();
+        let _ = scheduler.remove(uuid.first().unwrap()).await;
+    }
 }
+
 
 // convert crons to crons containing seconds
 fn normalize_cron(interval: &str) -> String {
@@ -47,13 +56,7 @@ pub async fn add_backup_job(server_id: &str, interval: &str) {
     let server_id_owned: String = server_id.to_owned();
     let normalized = normalize_cron(interval);
 
-    let uuid = {
-        JOB_IDS.lock().unwrap().iter().filter(|j| j.0 == server_id).map(|j| j.1.clone()).collect::<Vec<Uuid>>()
-    };
-
-    if uuid.len() > 0 {
-        remove_backup_job(&uuid.first().unwrap()).await;
-    }
+    remove_backup_job(&server_id).await;
 
     let scheduler: Arc<JobScheduler> = get_or_create_scheduler().await.unwrap();
 

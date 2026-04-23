@@ -177,8 +177,12 @@ async fn update_auto_backup(server_id: &str, enabled: bool, interval: String) ->
     let servers = get_cloned_servers();
     if let Some(server) = servers.iter().find(|s| s.server_id == server_id) {
         server.set_auto_backup(enabled, interval.clone());
+        if enabled {
+            crate::manager::cron::add_backup_job(server_id, &interval).await;
+        } else {
+            crate::manager::cron::remove_backup_job(server_id).await;
+        }
     }
-    crate::manager::cron::add_backup_job(server_id, &interval).await;
     Ok(())
 }
 
