@@ -3,7 +3,7 @@ use std::sync::{LazyLock, Mutex};
 use serde::{Deserialize, Serialize};
 use tauri::{Emitter, Manager, WindowEvent};
 
-use crate::{java::{detector::get_jre_version, jre::download_java}, manager::{process, servers::{self, Server, add_server, get_cloned_servers, install_server}}, minecraft::versions::{get_paper_versions, get_vanilla_versions}, utils::path::sanitize_name};
+use crate::{java::{detector::get_jre_version, jre::download_java}, manager::{backups, process, servers::{get_cloned_servers, Server}}, minecraft::versions::{get_paper_versions, get_vanilla_versions}, utils::path::sanitize_name};
 
 mod minecraft;
 mod manager;
@@ -80,11 +80,11 @@ async fn create_server(server_name: String, server_type: String, version: String
     };
 
     // add server
-    add_server(&server);
+    server.add();
 
     // install server
     try_emit("update-create-button-text", "Installing server...");
-    match install_server(&server).await {
+    match server.install().await {
         Ok(_) => update_frontend(),
         Err(ref err) => try_emit::<String>("alert", format!("{}", err)),
     }
@@ -92,7 +92,7 @@ async fn create_server(server_name: String, server_type: String, version: String
 
 #[tauri::command(async)]
 async fn update_server(server: Server) {
-    servers::update_server(&server).await;
+    server.update().await;
 }
 
 #[tauri::command(async)]
@@ -107,7 +107,8 @@ fn get_stdout(server_id: &str) -> Vec<String> {
 
 #[tauri::command(async)]
 fn set_eula_accepted(server_id: &str, accepted: bool) {
-    servers::set_eula_accepted(server_id, accepted);
+    let server = get_cloned_servers().into_iter().find(|s| s.server_id == server_id).expect("server not found");
+    server.set_eula_accepted(accepted);
 }
 
 #[tauri::command(async)]
@@ -117,17 +118,49 @@ fn write_stdin(server_id: &str, string: &str) {
 
 #[tauri::command(async)]
 fn read_properties_lines(server_id: &str) -> Vec<String> {
-    servers::read_properties_lines(server_id).expect("failed to read server.properties")
+    let server = get_cloned_servers().into_iter().find(|s| s.server_id == server_id).expect("server not found");
+    server.read_properties_lines().expect("failed to read server.properties")
 }
 
 #[tauri::command(async)]
 fn write_properties(server_id: &str, new_properties: &str) {
-    servers::write_properties(server_id, new_properties);
+    let server = get_cloned_servers().into_iter().find(|s| s.server_id == server_id).expect("server not found");
+    server.write_properties(new_properties);
 }
 
 #[tauri::command(async)]
 fn remove_server(server_id: &str) {
-    servers::remove_server(server_id);
+    let server = get_cloned_servers().into_iter().find(|s| s.server_id == server_id).expect("server not found");
+    server.remove();
+}
+
+#[tauri::command]
+fn get_backups(server_id: &str) -> Vec<backups::BackupEntry> {
+    let server = get_cloned_servers().into_iter().find(|s| s.server_id == server_id).expect("server not found");
+    backups::list_backups(&server)
+}
+
+#[tauri::command]
+fn create_backup(server_id: &str) {
+    let server = get_cloned_servers().into_iter().find(|s| s.server_id == server_id).expect("server not found");
+    if let Err(e) = backups::create_backup(&server) {
+        eprintln!("Failed to create backup: {}", e);
+    }
+}
+
+#[tauri::command]
+fn delete_backup(server_id: &str, backup_name: &str) {
+    let server = get_cloned_servers().into_iter().find(|s| s.server_id == server_id).expect("server not found");
+    if let Err(e) = backups::delete_backup(&server, backup_name) {
+        eprintln!("Failed to delete backup: {}", e);
+    }
+}
+
+#[tauri::command]
+async fn restore_backup(server_id: &str, backup_name: &str) -> Result<(), String> {
+    let server = get_cloned_servers().into_iter().find(|s| s.server_id == server_id).ok_or("server not found")?;
+    backups::restore_backup(&server, backup_name).await.map_err(|e| e.to_string())?;
+    Ok(())
 }
 
 
@@ -135,6 +168,7 @@ fn remove_server(server_id: &str) {
 pub fn run() {
     tauri::Builder::default()
         .plugin(tauri_plugin_opener::init())
+        .plugin(tauri_plugin_dialog::init())
         .on_window_event(|_window, event| {
             match event {
                 WindowEvent::CloseRequested { api: _, .. } => process::stop_all_servers(),
@@ -142,7 +176,8 @@ pub fn run() {
             }
         })
         .invoke_handler(tauri::generate_handler![init_window_properties, fetch_versions, create_server, update_server, 
-            start_server, get_stdout, set_eula_accepted, write_stdin, read_properties_lines, write_properties, remove_server])
+            start_server, get_stdout, set_eula_accepted, write_stdin, read_properties_lines, write_properties, remove_server,
+            get_backups, create_backup, delete_backup, restore_backup])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
 }

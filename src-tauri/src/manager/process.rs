@@ -6,10 +6,10 @@ use std::process::{ChildStderr, ChildStdin, Command, Stdio};
 use std::sync::{Arc, LazyLock, Mutex};
 use serde::{Deserialize, Serialize};
 
-use crate::manager::servers::{self, get_cloned_servers};
+use crate::manager::servers::get_cloned_servers;
 use crate::{try_emit, update_frontend};
 
-#[derive(Serialize, Deserialize, Clone)]
+#[derive(Serialize, Deserialize, Clone, PartialEq, Eq)]
 pub enum ServerStatus {
     Online,
     Offline
@@ -48,11 +48,12 @@ pub fn start_server(server_id: &str) -> Result<(), Box<dyn std::error::Error>>{
             return Err(format!("Server is already running").into());
         }
 
-        let mut jar_path = servers::get_server_path(server_id).unwrap();
-        jar_path.push("server.jar");
+        let jar_path = server.get_server_path();
+        let mut jar_full = jar_path.clone();
+        jar_full.push("server.jar");
 
-        if !fs::metadata(&jar_path).is_ok() {
-            return Err(format!("Server JAR not found at {:?}", jar_path).into());
+        if !fs::metadata(&jar_full).is_ok() {
+            return Err(format!("Server JAR not found at {:?}", jar_full).into());
         }
 
         // push child
@@ -60,7 +61,7 @@ pub fn start_server(server_id: &str) -> Result<(), Box<dyn std::error::Error>>{
         let mut config = Command::new(program_path);
         
         config
-            .current_dir(servers::get_server_path(server_id).unwrap())
+            .current_dir(jar_path)
             .stdin(Stdio::piped())
             .stdout(Stdio::piped())
             .stderr(Stdio::piped())

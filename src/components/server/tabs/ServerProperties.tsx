@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import {FrontendServer} from "../../../types/types.tsx";
-import { Check, X } from "lucide-react";
+import { Check, X, Settings, Globe } from "lucide-react";
 import Button from "../../ui/Button.tsx";
 import { invoke } from "@tauri-apps/api/core";
 import { SettingContainer } from "../../ui/SettingContainer.tsx";
@@ -89,7 +89,10 @@ export function ServerProperties({ server }: ServerPropertiesProps) {
 
             <div className={"flex flex-col max-h-100 h-100 overflow-y-scroll scrollbar-hide"}>
                 <div className="bg-bg-2 p-3">
-                    <p className={"text-base font-semibold text-orange-500 mb-3"}>General Settings</p>
+                    <div className="flex items-center gap-2 mb-3">
+                        <Settings className="w-5 h-5 text-orange-500" />
+                        <p className={"text-base font-semibold text-orange-500"}>General Settings</p>
+                    </div>
                     <div className="space-y-4">
                         {serverProperties.has('server-port') &&
                             <SettingContainer name={"Server Port"} description={"The server will run on this port"}>
@@ -119,7 +122,10 @@ export function ServerProperties({ server }: ServerPropertiesProps) {
                 </div>
 
                 <div className="bg-bg-2 p-3">
-                    <p className={"text-base font-semibold text-orange-500 mb-3"}>World Settings</p>
+                    <div className="flex items-center gap-2 mb-3">
+                        <Globe className="w-5 h-5 text-orange-500" />
+                        <p className={"text-base font-semibold text-orange-500"}>World Settings</p>
+                    </div>
                     <div className="space-y-4">
                         {serverProperties.has("difficulty") &&
                             <SettingContainer name={"Difficulty"} description={"The difficulty of the world"}>
