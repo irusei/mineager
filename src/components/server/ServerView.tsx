@@ -5,6 +5,7 @@ import { ServerSettings } from "./tabs/ServerSettings.tsx";
 import { invoke } from "@tauri-apps/api/core";
 import { ServerProperties } from "./tabs/ServerProperties.tsx";
 import { ServerBackups } from "./tabs/ServerBackups.tsx";
+import { FolderOpen } from "lucide-react";
 
 export type Tab = "Console" | "Settings" | "Properties" | "Backups";
 
@@ -29,6 +30,10 @@ export default function ServerView({ server }: ServerViewProps) {
         await invoke("write_stdin", { serverId: server.server.server_id, string: "stop"})
     }
 
+    async function openFolder() {
+        await invoke("open_server_folder", { serverId: server.server.server_id })
+    }
+
     return (
         <div className="flex flex-col min-h-full flex-1 bg-bg-1">
             <div className="bg-bg-2 border-b border-border p-4 flex justify-between items-center">
@@ -39,6 +44,9 @@ export default function ServerView({ server }: ServerViewProps) {
                         {server.status}
                     </span>
                 </div>
+                <button onClick={openFolder} className="text-gray-400 hover:text-text transition-colors duration-150">
+                    <FolderOpen className="w-5 h-5" />
+                </button>
             </div>
 
             <div className="bg-bg-2 border-b border-border flex gap-2 p-2.5">

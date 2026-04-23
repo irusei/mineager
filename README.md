@@ -51,6 +51,14 @@
    npm run tauri dev
    ```
 
+## Building
+
+### Desktop
+Builds the app:
+```sh
+npm run tauri build
+```
+
 <!-- USAGE EXAMPLES -->
 ## Usage
 
@@ -59,7 +67,7 @@ TBD
 <!-- ROADMAP -->
 ## Roadmap
 Some, but not all:
-- [ ] Creating/restoring backups
+- [X] Creating/restoring backups
 - [ ] Plugin support
 - [ ] Mod/modpack support
 - [X] Automatic Java detection + installation

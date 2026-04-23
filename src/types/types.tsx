@@ -9,6 +9,8 @@ interface MinecraftServer {
     java_path: string,
     allocated_ram: string,
     launch_args: string,
+    auto_backups: boolean,
+    auto_backup_interval: string,
 }
 
 export interface FrontendServer {
@@ -16,3 +18,4 @@ export interface FrontendServer {
 
     status: "Online" | "Offline"
 }
+
