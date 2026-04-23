@@ -4,8 +4,9 @@ import {ServerConsole} from "./tabs/ServerConsole.tsx";
 import { ServerSettings } from "./tabs/ServerSettings.tsx";
 import { invoke } from "@tauri-apps/api/core";
 import { ServerProperties } from "./tabs/ServerProperties.tsx";
+import { ServerBackups } from "./tabs/ServerBackups.tsx";
 
-export type Tab = "Console" | "Settings" | "Properties";
+export type Tab = "Console" | "Settings" | "Properties" | "Backups";
 
 interface ServerViewProps {
     server: FrontendServer
@@ -41,7 +42,7 @@ export default function ServerView({ server }: ServerViewProps) {
             </div>
 
             <div className="bg-bg-2 border-b border-border flex gap-2 p-2.5">
-                {(["Console", "Settings", "Properties"] as Tab[]).map((tabName) => (
+                {(["Console", "Settings", "Properties", "Backups"] as Tab[]).map((tabName) => (
                     <button
                         key={tabName}
                         onClick={() => setTab(tabName)}
@@ -59,6 +60,7 @@ export default function ServerView({ server }: ServerViewProps) {
                 {tab === "Console" && <ServerConsole server={server} startServer={startServer} stopServer={stopServer} />}
                 {tab === "Settings" && <ServerSettings server={server}/>}
                 {tab === "Properties" && <ServerProperties server={server}/>}
+                {tab === "Backups" && <ServerBackups server={server}/>}
             </div>
         </div>
     )

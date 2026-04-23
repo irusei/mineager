@@ -1,7 +1,7 @@
 {
   "name": "mineager",
   "private": true,
-  "version": "0.2.1",
+  "version": "0.3.0",
   "type": "module",
   "scripts": {
     "dev": "vite",
@@ -13,6 +13,7 @@
   "dependencies": {
     "@tailwindcss/vite": "^4.2.2",
     "@tauri-apps/api": "^2",
+    "@tauri-apps/plugin-dialog": "^2.7.0",
     "@tauri-apps/plugin-opener": "^2",
     "clsx": "^2.1.1",
     "lucide-react": "^1.7.0",

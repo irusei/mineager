@@ -36,20 +36,239 @@ pub(crate) struct Server {
     pub(crate) auto_backup_interval: String, // crontab notation
 }
 
-pub fn get_cloned_servers() -> Vec<Server> {
-    return (*SERVERS.lock().unwrap()).clone();
+impl Server {
+    pub fn add(&self) {
+        {
+            let mut servers = SERVERS.lock().unwrap();
+            servers.push(self.clone());
+        }
+        save_servers();
+        update_frontend();
+    }
+
+    pub fn remove(&self) {
+        {
+            let mut servers = SERVERS.lock().unwrap();
+            
+            if let Some(index) = servers.iter().position(|s| s.server_id == self.server_id) {
+                servers.remove(index);
+            }
+
+            self.clean_server_directory();
+        }
+        save_servers();
+        update_frontend();
+    }
+
+    pub async fn change_server_details(&self, new_server_type: &str, new_server_version: &str) {
+        let java_path: String = download_java(
+            &get_jre_version(new_server_version)
+        ).await.map(|result| result.to_string_lossy().into_owned()).unwrap_or(String::from(""));
+
+        let updated = Server {
+            server_id: self.server_id.clone(),
+            server_name: sanitize_name(&self.server_name),
+            server_type: new_server_type.to_string(),
+            server_version: new_server_version.to_string(),
+            launch_args: self.launch_args.clone(),
+            java_path: java_path,
+            allocated_ram: self.allocated_ram.clone(),
+            backups: self.backups.clone(),
+            auto_backups: self.auto_backups,
+            auto_backup_interval: self.auto_backup_interval.clone()
+        };
+
+        match updated.install().await {
+            Ok(_) => {
+                let mut servers = SERVERS.lock().unwrap();
+                if let Some(index) = servers.iter().position(|s| s.server_id == self.server_id) {
+                    servers[index] = updated
+                }
+            },
+            Err(ref err) => try_emit::<String>("alert", format!("{}", err)),
+        }
+
+        save_servers();
+        update_frontend();
+    }
+
+    pub async fn update(&self) {
+        let needs_reinstall: bool = {
+            let servers = SERVERS.lock().unwrap();
+            if let Some(s) = servers.iter().find(|s| s.server_id == self.server_id) {
+                if s.server_type != self.server_type || s.server_version != self.server_version {
+                    true
+                } else {
+                    false
+                }
+            } else {
+                false
+            }
+        };
+
+        if needs_reinstall {
+            let java_path: String = download_java(
+                &get_jre_version(&self.server_version)
+            ).await.map(|result| result.to_string_lossy().into_owned()).unwrap_or(String::from(""));
+
+            let updated = Server {
+                server_id: self.server_id.clone(),
+                server_name: sanitize_name(&self.server_name),
+                server_type: self.server_type.clone(),
+                server_version: self.server_version.clone(),
+                launch_args: self.launch_args.clone(),
+                java_path: java_path,
+                allocated_ram: self.allocated_ram.clone(),
+                backups: self.backups.clone(),
+                auto_backups: self.auto_backups,
+                auto_backup_interval: self.auto_backup_interval.clone()
+            };
+
+            {
+                match updated.install().await {
+                    Ok(_) => {
+                        let mut servers = SERVERS.lock().unwrap();
+                        if let Some(index) = servers.iter().position(|s| s.server_id == self.server_id) {
+                            servers[index] = updated
+                        }
+                    },
+                    Err(ref err) => try_emit::<String>("alert", format!("{}", err)),
+                }
+            }
+        } else {
+            let mut servers = SERVERS.lock().unwrap();
+            if let Some(index) = servers.iter().position(|s| s.server_id == self.server_id) {
+                servers[index] = Server {
+                    server_id: self.server_id.clone(),
+                    server_name: sanitize_name(&self.server_name),
+                    server_type: self.server_type.clone(),
+                    server_version: self.server_version.clone(),
+                    launch_args: self.launch_args.clone(),
+                    java_path: self.java_path.clone(),
+                    allocated_ram: self.allocated_ram.clone(),
+                    backups: self.backups.clone(),
+                    auto_backups: self.auto_backups,
+                    auto_backup_interval: self.auto_backup_interval.clone()
+                };
+            }
+        }
+
+        save_servers();
+        update_frontend();
+    }
+
+    pub async fn install(&self) -> Result<(), Box<dyn std::error::Error>> {
+        let mut server_path = self.get_server_path();
+
+        if !fs::exists(&server_path).unwrap() {
+            fs::create_dir_all(&server_path).expect("Failed to create server directory");
+        }
+
+        let jar_file = match self.server_type.as_str() {
+            "Vanilla" => jars::get_mojang_jar(&self.server_version).await,
+            "Paper" => jars::get_paper_jar(&self.server_version).await,
+            _ => jars::get_paper_jar(&self.server_version).await,
+        };
+
+        if let Err(ref err) = jar_file {
+            return Err(format!("failed to fetch jar file: {}", err).into());
+        }
+
+        server_path.push("server.jar");
+
+        OpenOptions::new()
+            .create(true)
+            .truncate(true)
+            .write(true)
+            .open(&server_path)?
+            .write_all(&jar_file.unwrap())?;
+
+        Ok(())
+    }
+
+    pub fn set_eula_accepted(&self, accepted: bool) {
+        let mut eula_path = self.get_server_path();
+        eula_path.push("eula.txt");
+
+        let mut eula_file = OpenOptions::new()
+            .write(true)
+            .truncate(true)
+            .open(eula_path)
+            .expect("Failed to open eula.txt");
+
+        eula_file.write_all(format!("eula={}", accepted).as_bytes()).expect("Cannot write to eula.txt");
+    }
+
+    pub fn read_properties_lines(&self) -> Result<Vec<String>, Box<dyn std::error::Error>> {
+        let mut server_properties_path = self.get_server_path();
+        server_properties_path.push("server.properties");
+        if !fs::exists(&server_properties_path).unwrap() {
+            return Ok(Vec::new());
+        }
+
+        let server_properties_file = OpenOptions::new()
+            .create(false)
+            .read(true) 
+            .open(server_properties_path)
+            .unwrap();
+        
+        let mut lines: Vec<String> = Vec::new();
+        let mut reader = BufReader::new(server_properties_file);
+
+        loop {
+            let mut buf: Vec<u8> = Vec::new();
+            match reader.read_until(b'\n', &mut buf) {
+                Ok(0) => break,
+                Ok(_) => {
+                    let line = String::from_utf8(buf).unwrap();
+                    lines.push(line.trim_end().to_string());
+                },
+                Err(ref e) => {
+                    if e.kind() == ErrorKind::WouldBlock  { 
+                        break 
+                    }
+                    return Err("failed to read server.properties".into());
+                }
+            }
+        }
+
+        Ok(lines)
+    }
+
+    pub fn write_properties(&self, properties: &str) {
+        let mut server_properties_path = self.get_server_path();
+        server_properties_path.push("server.properties");
+
+        let mut server_properties_file = OpenOptions::new()
+            .create(true)
+            .write(true)
+            .truncate(true) 
+            .open(server_properties_path)
+            .unwrap();
+
+        server_properties_file.write_all(properties.as_bytes()).expect("failed to write to server.properties");
+    }
+
+    pub fn get_server_path(&self) -> std::path::PathBuf {
+        let mut path = get_core_path();
+        path.push("servers");
+        path.push(&self.server_id);
+        path
+    }
+
+    pub fn clean_server_directory(&self) {
+        let mut path = get_core_path();
+        path.push("servers");
+        path.push(&self.server_id);
+
+        if fs::exists(&path).unwrap() {
+            fs::remove_dir_all(path).unwrap();
+        }
+    }
 }
 
-pub fn get_server_path(server_id: &str) -> Option<std::path::PathBuf> {
-    let mut path = get_core_path();
-    path.push("servers");
-    path.push(server_id);
-
-    if fs::exists(&path).unwrap() {
-        Some(path)
-    } else {
-        None
-    }
+pub fn get_cloned_servers() -> Vec<Server> {
+    (*SERVERS.lock().unwrap()).clone()
 }
 
 pub fn ensure_file() {
@@ -71,26 +290,6 @@ pub fn ensure_file() {
     }
 }
 
-pub fn clean_server_directory(server_id: &str) {
-    let mut path = get_core_path();
-    path.push("servers");
-    path.push(server_id);
-
-    if fs::exists(&path).unwrap() {
-        fs::remove_dir_all(path).unwrap();
-    }
-}
-
-pub fn read_servers() -> Vec<Server> {
-    ensure_file();
-    let mut path = get_core_path();
-    path.push(SERVER_STORAGE_FILE);
-
-    let storage_file = File::open(path).expect("Failed to open servers.json");
-
-    serde_json::from_reader(storage_file).expect("Failed to deserialize json")
-}
-
 pub fn save_servers() {
     let servers = get_cloned_servers();
 
@@ -107,196 +306,12 @@ pub fn save_servers() {
     storage_file.write_all(json.as_bytes()).expect("Failed to write json");
 }
 
-pub fn add_server(server: &Server) {
-    {
-        let mut servers = SERVERS.lock().unwrap();
-        servers.push(server.clone());
-    }
-    save_servers();
-    update_frontend();
-}
+pub fn read_servers() -> Vec<Server> {
+    ensure_file();
+    let mut path = get_core_path();
+    path.push(SERVER_STORAGE_FILE);
 
-pub fn remove_server(server_id: &str) {
-    {
-        let mut servers = SERVERS.lock().unwrap();
-        
-        if let Some(index) = servers.iter().position(|s| s.server_id == server_id) {
-            servers.remove(index);
-        }
+    let storage_file = File::open(path).expect("Failed to open servers.json");
 
-        clean_server_directory(server_id);
-    }
-    save_servers();
-    update_frontend();
-}
-
-pub fn set_eula_accepted(server_id: &str, accepted: bool) {
-    let mut eula_path = get_server_path(server_id).unwrap();
-    eula_path.push("eula.txt");
-
-    let mut eula_file = OpenOptions::new()
-        .write(true)
-        .truncate(true)
-        .open(eula_path)
-        .expect("Failed to open eula.txt");
-
-    eula_file.write_all(format!("eula={}", accepted.to_string()).as_bytes()).expect("Cannot write to eula.txt");
-}
-
-pub async fn install_server(server: &Server) -> Result<(), Box<dyn std::error::Error>> {
-    let option_server_path = get_server_path(&server.server_id);
-    let mut server_path: std::path::PathBuf;
-
-    // create folder if it doesn't exist
-    if let Some(path) = option_server_path {
-        server_path = path;
-    } else {
-        let mut temp_path = get_core_path();
-        temp_path.push("servers");
-        temp_path.push(&server.server_id);
-
-        fs::create_dir_all(&temp_path).expect("Failed to create server directory");
-
-        server_path = temp_path;
-    }
-
-    let jar_file = match server.server_type.clone().as_str() {
-        "Vanilla" => jars::get_mojang_jar(&server.server_version).await,
-        "Paper" => jars::get_paper_jar(&server.server_version).await,
-        _ => jars::get_paper_jar(&server.server_version).await,
-    };
-
-    if let Err(ref err) = jar_file {
-        return Err(format!("failed to fetch jar file: {}", err).into());
-    }
-
-    server_path.push("server.jar");
-
-    OpenOptions::new()
-        .create(true)
-        .truncate(true)
-        .write(true)
-        .open(&server_path)?
-        .write_all(&jar_file.unwrap())?;
-
-    Ok(())
-    
-}
-
-pub async fn update_server(new_server: &Server) {
-    let needs_reinstall: bool = {
-        let servers = SERVERS.lock().unwrap();
-        if let Some(s) = servers.iter().find(|s| s.server_id == new_server.server_id) {
-            if s.server_type != new_server.server_type || s.server_version != new_server.server_version {
-                true
-            } else {
-                false
-            }
-        } else {
-            false
-        }
-    };
-
-    if needs_reinstall {
-        let java_path: String = download_java(
-            &get_jre_version(&new_server.server_version)
-        ).await.map(|result| result.to_string_lossy().into_owned()).unwrap_or(String::from(""));
-
-        let new_server = Server {
-            server_id: new_server.server_id.clone(),
-            server_name: sanitize_name(&new_server.server_name),
-            server_type: new_server.server_type.clone(),
-            server_version: new_server.server_version.clone(),
-            launch_args: new_server.launch_args.clone(),
-            java_path: java_path, // change the java path here
-            allocated_ram: new_server.allocated_ram.clone(),
-            backups: new_server.backups.clone(),
-            auto_backups: new_server.auto_backups,
-            auto_backup_interval: new_server.auto_backup_interval.clone()
-        };
-
-        {
-            match install_server(&new_server).await {
-                Ok(_) => {
-                    let mut servers = SERVERS.lock().unwrap();
-                    if let Some(index) = servers.iter().position(|s| s.server_id == new_server.server_id) {
-                        servers[index] = new_server
-                    }
-                },
-                Err(ref err) => try_emit::<String>("alert", format!("{}", err)),
-            }
-        }
-    } else {
-        let mut servers = SERVERS.lock().unwrap();
-        if let Some(index) = servers.iter().position(|s| s.server_id == new_server.server_id) {
-            servers[index] = Server {
-                server_id: new_server.server_id.clone(),
-                server_name: sanitize_name(&new_server.server_name),
-                server_type: new_server.server_type.clone(),
-                server_version: new_server.server_version.clone(),
-                launch_args: new_server.launch_args.clone(),
-                java_path: new_server.java_path.clone(),
-                allocated_ram: new_server.allocated_ram.clone(),
-                backups: new_server.backups.clone(),
-                auto_backups: new_server.auto_backups,
-                auto_backup_interval: new_server.auto_backup_interval.clone()
-            };
-        }
-    }
-
-    save_servers();
-    update_frontend();
-}
-
-pub fn read_properties_lines(server_id: &str) -> Result<Vec<String>, Box<dyn std::error::Error>> {
-    let mut server_properties_path = get_server_path(server_id).unwrap();
-    server_properties_path.push("server.properties");
-    if !fs::exists(&server_properties_path).unwrap() {
-        return Ok(Vec::new());
-    }
-
-    let server_properties_file = OpenOptions::new()
-        .create(false)
-        .read(true) 
-        .open(server_properties_path)
-        .unwrap();
-    
-    
-    let mut lines: Vec<String> = Vec::new();
-    let mut reader = BufReader::new(server_properties_file);
-
-    loop {
-        let mut buf: Vec<u8> = Vec::new();
-        match reader.read_until(b'\n', &mut buf) {
-            Ok(0) => break,
-            Ok(_) => {
-                let line = String::from_utf8(buf).unwrap();
-                lines.push(line.trim_end().to_string());
-            },
-            Err(ref e) => {
-                if e.kind() == ErrorKind::WouldBlock  { 
-                    break 
-                }
-
-                return Err(format!("failed to read server.properties").into());
-            }
-        }
-    }
-
-    Ok(lines)
-    
-}
-
-pub fn write_properties(server_id: &str, properties: &str) {
-    let mut server_properties_path = get_server_path(server_id).unwrap();
-    server_properties_path.push("server.properties");
-
-    let mut server_properties_file = OpenOptions::new()
-        .create(true)
-        .write(true)
-        .truncate(true) 
-        .open(server_properties_path)
-        .unwrap();
-
-    server_properties_file.write_all(properties.as_bytes()).expect("failed to write to server.properties")
+    serde_json::from_reader(storage_file).expect("Failed to deserialize json")
 }
