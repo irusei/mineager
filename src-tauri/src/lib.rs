@@ -3,7 +3,7 @@ use std::sync::{LazyLock, Mutex};
 use serde::{Deserialize, Serialize};
 use tauri::{Emitter, Manager, WindowEvent};
 
-use crate::{java::{detector::get_jre_version, jre::download_java}, manager::{backups, process, servers::{get_cloned_servers, Server}, cron}, minecraft::versions::{get_paper_versions, get_vanilla_versions}, utils::path::sanitize_name};
+use crate::{java::{detector::get_jre_version}, manager::{process, servers::{get_cloned_servers, Server}, cron}, minecraft::versions::{get_paper_versions, get_vanilla_versions}, utils::path::sanitize_name};
 
 mod minecraft;
 mod manager;
@@ -62,9 +62,8 @@ async fn create_server(server_name: String, server_type: String, version: String
 
     // download java
     try_emit("update-create-button-text", "Downloading Java...");
-    let java_path = download_java(
-       &get_jre_version(&version)
-    ).await.map(|result| result.to_string_lossy().into_owned()).unwrap_or(String::from(""));
+    let jre_version = &get_jre_version(&version);
+    let java_path = jre_version.download().await.map(|result| result.to_string_lossy().into_owned()).unwrap_or(String::from(""));
 
     let server = Server {
         server_id,
@@ -102,7 +101,7 @@ fn start_server(server_id: &str) {
     process::start_server(server_id).expect("Failed to launch server");
     if let Some(server) = server {
         if server.auto_backups {
-            if let Err(e) = backups::create_backup(&server) {
+            if let Err(e) = server.create_backup() {
                 eprintln!("Failed to create backup on startup for server {}: {}", server.server_id, e);
             }
         }
@@ -144,15 +143,15 @@ fn remove_server(server_id: &str) {
 }
 
 #[tauri::command]
-fn get_backups(server_id: &str) -> Vec<backups::BackupEntry> {
+fn get_backups(server_id: &str) -> Vec<crate::manager::backups::BackupEntry> {
     let server = get_cloned_servers().into_iter().find(|s| s.server_id == server_id).expect("server not found");
-    backups::list_backups(&server)
+    server.list_backups()
 }
 
 #[tauri::command]
 fn create_backup(server_id: &str) {
     let server = get_cloned_servers().into_iter().find(|s| s.server_id == server_id).expect("server not found");
-    if let Err(e) = backups::create_backup(&server) {
+    if let Err(e) = server.create_backup() {
         eprintln!("Failed to create backup: {}", e);
     }
 }
@@ -160,7 +159,7 @@ fn create_backup(server_id: &str) {
 #[tauri::command]
 fn delete_backup(server_id: &str, backup_name: &str) {
     let server = get_cloned_servers().into_iter().find(|s| s.server_id == server_id).expect("server not found");
-    if let Err(e) = backups::delete_backup(&server, backup_name) {
+    if let Err(e) = server.delete_backup(backup_name) {
         eprintln!("Failed to delete backup: {}", e);
     }
 }
@@ -168,7 +167,7 @@ fn delete_backup(server_id: &str, backup_name: &str) {
 #[tauri::command]
 async fn restore_backup(server_id: &str, backup_name: &str) -> Result<(), String> {
     let server = get_cloned_servers().into_iter().find(|s| s.server_id == server_id).ok_or("server not found")?;
-    backups::restore_backup(&server, backup_name).await.map_err(|e| e.to_string())?;
+    server.restore_backup(backup_name).await.map_err(|e| e.to_string())?;
     Ok(())
 }
 
@@ -178,9 +177,9 @@ async fn update_auto_backup(server_id: &str, enabled: bool, interval: String) ->
     if let Some(server) = servers.iter().find(|s| s.server_id == server_id) {
         server.set_auto_backup(enabled, interval.clone());
         if enabled {
-            crate::manager::cron::add_backup_job(server_id, &interval).await;
+            server.add_backup_job(&interval).await;
         } else {
-            crate::manager::cron::remove_backup_job(server_id).await;
+            server.remove_backup_job().await;
         }
     }
     Ok(())
@@ -203,7 +202,7 @@ fn open_backup_folder(server_id: &str) {
     use tauri_plugin_opener::OpenerExt;
     let servers = get_cloned_servers();
     if let Some(server) = servers.iter().find(|s| s.server_id == server_id) {
-        let path = backups::ensure_backup_path(&server);
+        let path = server.ensure_backup_path();
         if let Some(handle) = MAIN_HANDLE.lock().unwrap().as_ref() {
             let _ = handle.app_handle().opener().open_path(path.to_string_lossy().to_string(), None::<&str>);
         }

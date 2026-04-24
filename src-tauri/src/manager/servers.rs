@@ -4,7 +4,6 @@ use std::io::{BufRead, BufReader, ErrorKind, Write};
 use std::sync::{LazyLock, Mutex};
 use serde::{Deserialize, Serialize};
 
-use crate::java::jre::download_java;
 use crate::java::detector::get_jre_version;
 use crate::minecraft::jars;
 use crate::{try_emit, update_frontend};
@@ -61,9 +60,8 @@ impl Server {
     }
 
     pub async fn change_server_details(&self, new_server_type: &str, new_server_version: &str) {
-        let java_path: String = download_java(
-            &get_jre_version(new_server_version)
-        ).await.map(|result| result.to_string_lossy().into_owned()).unwrap_or(String::from(""));
+        let jre_version = &get_jre_version(new_server_version);
+        let java_path: String = jre_version.download().await.map(|result| result.to_string_lossy().into_owned()).unwrap_or(String::from(""));
 
         let updated = Server {
             server_id: self.server_id.clone(),
@@ -107,9 +105,8 @@ impl Server {
         };
 
         if needs_reinstall {
-            let java_path: String = download_java(
-                &get_jre_version(&self.server_version)
-            ).await.map(|result| result.to_string_lossy().into_owned()).unwrap_or(String::from(""));
+            let jre_version = &get_jre_version(&self.server_version);
+            let java_path: String = jre_version.download().await.map(|result| result.to_string_lossy().into_owned()).unwrap_or(String::from(""));
 
             let updated = Server {
                 server_id: self.server_id.clone(),
