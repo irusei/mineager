@@ -98,13 +98,13 @@ export function ServerBackups({ server }: ServerBackupsProps) {
         <div className="flex-1 h-full min-h-120 max-h-120 bg-bg-2 flex flex-col">
             <div className="relative flex flex-col flex-1 overflow-hidden p-3 overflow-y-auto scrollbar-hide">
                 <div className="flex items-center gap-2 mb-3">
-                    <Settings className="w-5 h-5 text-mauve" />
+                    <Settings className="w-4 h-4 text-mauve" />
                     <p className="text-base font-semibold text-mauve">Backup Settings</p>
                 </div>
                 <div className="mb-4">
                     <SettingContainer name="Create Backup" description="Create a backup of the server directory.">
                         <Button onClick={createBackup} className="w-1/2" color="primary" disabled={showLoading}>
-                            <Download className="w-5 h-5" />
+                            <Download className="w-4 h-4" />
                             <span>Create Backup</span>
                         </Button>
                     </SettingContainer>
@@ -132,7 +132,7 @@ export function ServerBackups({ server }: ServerBackupsProps) {
                 </div>
                 <div className="flex items-center justify-between gap-2 mb-3">
                     <div className="flex items-center gap-2">
-                        <FolderArchive className="w-5 h-5 text-mauve" />
+                        <FolderArchive className="w-4 h-4 text-mauve" />
                         <p className="text-base font-semibold text-mauve">Backups</p>
                     </div>
                     <Button onClick={openBackupFolder} color="primary" className="w-auto py-1.5 px-2 gap-1">

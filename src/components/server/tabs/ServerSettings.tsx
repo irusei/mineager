@@ -48,7 +48,7 @@ export function ServerSettings({ server }: ServerSettingsProps) {
             <div className={"flex flex-col max-h-100 h-100 overflow-y-scroll scrollbar-hide"}>
                 <div className="p-3">
                     <div className="flex items-center gap-2 mb-3">
-                        <Cpu className="w-5 h-5 text-mauve" />
+                        <Cpu className="w-4 h-4 text-mauve" />
                         <p className="text-base font-semibold text-mauve">Java Settings</p>
                     </div>
                     <div>
@@ -87,7 +87,7 @@ export function ServerSettings({ server }: ServerSettingsProps) {
                                         }))
                                     }
                                 }} color="primary">
-                                    <FolderOpen className="w-5 h-5" /><></>
+                                    <FolderOpen className="w-4 h-4" /><></>
                                 </Button>
                             </div>
                         </SettingContainer>
@@ -126,7 +126,7 @@ export function ServerSettings({ server }: ServerSettingsProps) {
 
                 <div className="p-3">
                     <div className="flex items-center gap-2 mb-3">
-                        <Trash2 className="w-5 h-5 text-red" />
+                        <Trash2 className="w-4 h-4 text-red" />
                         <p className="text-base font-semibold text-red">Danger Zone</p>
                     </div>
                     <SettingContainer name="Server Jar" description="">
@@ -162,7 +162,7 @@ export function ServerSettings({ server }: ServerSettingsProps) {
                             title={server.status === "Online" ? "The server must be turned off." : ""}
                             onClick={() => setShowDeleteModal(true)}
                         >
-                            <X className="w-5 h-5"/>
+                            <X className="w-4 h-4"/>
                             <span>Delete</span>
                         </Button>
                     </SettingContainer>
@@ -171,11 +171,11 @@ export function ServerSettings({ server }: ServerSettingsProps) {
         </div>
         <div className="flex flex-row w-full space-x-4 bg-bg-2 border-t border-border p-2.5">
             <Button onClick={() => applySettings()} color={"primary"}>
-                <Check className={"w-6 h-6 block"}/>
+                <Check className={"w-4 h-4"}/>
                 <p>Apply</p>
             </Button>
             <Button onClick={() => setSettingServer(server)} color={"red"}>
-                <X className={"w-6 h-6 block"}/>
+                <X className={"w-4 h-4"}/>
                 <p>Revert</p>
             </Button>
         </div>

@@ -42,7 +42,7 @@ export default function ServerView({ server }: ServerViewProps) {
                     <span className="text-2xl font-semibold text-text">{server.server.server_name}</span>
                 </div>
                 <button onClick={openFolder} className="text-overlay1 hover:text-text transition-colors duration-150">
-                    <FolderOpen className="w-5 h-5" />
+                    <FolderOpen className="w-4 h-4" />
                 </button>
             </div>
 

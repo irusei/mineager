@@ -90,7 +90,7 @@ export function ServerProperties({ server }: ServerPropertiesProps) {
             <div className={"flex flex-col max-h-100 h-100 overflow-y-scroll scrollbar-hide"}>
                 <div className="bg-bg-2 p-3">
                     <div className="flex items-center gap-2 mb-3">
-                        <Settings className="w-5 h-5 text-mauve" />
+                        <Settings className="w-4 h-4 text-mauve" />
                         <p className={"text-base font-semibold text-mauve"}>General Settings</p>
                     </div>
                     <div>
@@ -123,7 +123,7 @@ export function ServerProperties({ server }: ServerPropertiesProps) {
 
                 <div className="bg-bg-2 p-3">
                     <div className="flex items-center gap-2 mb-3">
-                        <Globe className="w-5 h-5 text-mauve" />
+                        <Globe className="w-4 h-4 text-mauve" />
                         <p className={"text-base font-semibold text-mauve"}>World Settings</p>
                     </div>
                     <div>
@@ -190,11 +190,11 @@ export function ServerProperties({ server }: ServerPropertiesProps) {
         </div>
         <div className={"flex flex-row w-full space-x-4 bg-bg-2 border-t border-border p-2.5"}>
             <Button onClick={() => applyProperties()} color={"primary"}>
-                <Check className={"w-6 h-6 block"}/>
+                <Check className={"w-4 h-4"}/>
                 <p>Apply</p>
             </Button>
             <Button onClick={() => reloadProperties()} color={"red"}>
-                <X className={"w-6 h-6 block"}/>
+                <X className={"w-4 h-4"}/>
                 <p>Revert</p>
             </Button>
         </div>

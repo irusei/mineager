@@ -59,11 +59,11 @@ export function ConfirmModal({
     return (
         <Modal isOpen={isOpen} onClose={onClose} title={title} description={description}>
             <Button onClick={onConfirm} color={confirmColor} className="px-4">
-                <Check/>
+                <Check className={"w-4 h-4"}/>
                 <span>{confirmText}</span>
             </Button>
             <Button onClick={onClose} color="red" className="px-4">
-                <X/>
+                <X className={"w-4 h-4"}/>
                 <span>{cancelText}</span>
             </Button>
         </Modal>

@@ -41,9 +41,9 @@ export function Select({ className, disabled, value, setValue, options }: Select
                 <span className="flex-1 text-left truncate">{value || "Select an option"}</span>
                 <div className="ml-3 shrink-0">
                     {isOpen ? (
-                        <ChevronUp className="w-5 h-5 text-text-2" />
+                        <ChevronUp className="w-4 h-4 text-text-2" />
                     ) : (
-                        <ChevronDown className="w-5 h-5 text-text-2" />
+                        <ChevronDown className="w-4 h-4 text-text-2" />
                     )}
                 </div>
             </button>
