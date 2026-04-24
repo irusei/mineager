@@ -1,19 +1,19 @@
 export function getStatusColor(status: "Online" | "Offline") {
     if (status == "Online")
-        return "bg-green-500"
+        return "bg-green"
 
-    return "bg-red-500"
+    return "bg-red"
 }
 
 export function getConsoleColor(line: string) {
     if (line.length > 1 && line[0] === ">")
-        return "text-white"
+        return "text-mauve"
 
     if (line.includes("] [Server thread/INFO]:"))
         return "text-text"
 
     if (line.startsWith("WARNING:"))
-        return "text-yellow-400"
+        return "text-mauve"
 
-    return "text-green-400"
+    return "text-green"
 }

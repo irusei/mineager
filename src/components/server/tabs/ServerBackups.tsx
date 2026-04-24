@@ -98,12 +98,12 @@ export function ServerBackups({ server }: ServerBackupsProps) {
         <div className="flex-1 h-full min-h-120 max-h-120 bg-bg-2 flex flex-col">
             <div className="relative flex flex-col flex-1 overflow-hidden p-3 overflow-y-auto scrollbar-hide">
                 <div className="flex items-center gap-2 mb-3">
-                    <Settings className="w-5 h-5 text-orange-500" />
-                    <p className="text-base font-semibold text-orange-500">Backup Settings</p>
+                    <Settings className="w-5 h-5 text-mauve" />
+                    <p className="text-base font-semibold text-mauve">Backup Settings</p>
                 </div>
                 <div className="mb-4">
                     <SettingContainer name="Create Backup" description="Create a backup of the server directory.">
-                        <Button onClick={createBackup} className="w-1/2" color="orange" disabled={showLoading}>
+                        <Button onClick={createBackup} className="w-1/2" color="primary" disabled={showLoading}>
                             <Download className="w-5 h-5" />
                             <span>Create Backup</span>
                         </Button>
@@ -132,10 +132,10 @@ export function ServerBackups({ server }: ServerBackupsProps) {
                 </div>
                 <div className="flex items-center justify-between gap-2 mb-3">
                     <div className="flex items-center gap-2">
-                        <FolderArchive className="w-5 h-5 text-orange-500" />
-                        <p className="text-base font-semibold text-orange-500">Backups</p>
+                        <FolderArchive className="w-5 h-5 text-mauve" />
+                        <p className="text-base font-semibold text-mauve">Backups</p>
                     </div>
-                    <Button onClick={openBackupFolder} color="orange" className="w-auto py-1.5 px-2 gap-1">
+                    <Button onClick={openBackupFolder} color="primary" className="w-auto py-1.5 px-2 gap-1">
                         <FolderOpen className="w-4 h-4" /><></>
                     </Button>
                 </div>
@@ -151,7 +151,7 @@ export function ServerBackups({ server }: ServerBackupsProps) {
                                 <span className="text-xs text-text-2">{formatSize(backup.size)}</span>
                             </div>
                             <div className="flex flex-row gap-2">
-                                <Button onClick={() => setShowRestoreModal(backup.name)} disabled={server.status === "Online"} color="blue" className="w-auto py-1.5 px-3 gap-1">
+                                <Button onClick={() => setShowRestoreModal(backup.name)} disabled={server.status === "Online"} color="primary" className="w-auto py-1.5 px-3 gap-1">
                                     <Download className="w-4 h-4" />
                                     <span className="text-xs">Restore</span>
                                 </Button>
@@ -165,7 +165,7 @@ export function ServerBackups({ server }: ServerBackupsProps) {
                 </div>
                 {showLoading && (
                     <div className="absolute inset-0 bg-bg-2/80 backdrop-blur-sm flex items-center justify-center z-10">
-                        <Loader2 className="w-10 h-10 text-orange-500 animate-spin" />
+                        <Loader2 className="w-10 h-10 text-mauve animate-spin" />
                     </div>
                 )}
                 <ConfirmModal
@@ -175,7 +175,7 @@ export function ServerBackups({ server }: ServerBackupsProps) {
                     description={`Are you sure you want to delete ${showDeleteModal || ""}?`}
                     confirmText="Delete"
                     onConfirm={doDeleteBackup}
-                    confirmColor="blue"
+                    confirmColor="primary"
                     cancelText="Cancel"
                 />
                 <ConfirmModal
@@ -185,7 +185,7 @@ export function ServerBackups({ server }: ServerBackupsProps) {
                     description={`Restore from ${showRestoreModal || ""}? This will overwrite the current server data.`}
                     confirmText="Restore"
                     onConfirm={doRestoreBackup}
-                    confirmColor="blue"
+                    confirmColor="primary"
                     cancelText="Cancel"
                 />
             </div>

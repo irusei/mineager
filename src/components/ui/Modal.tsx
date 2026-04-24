@@ -13,25 +13,25 @@ export function Modal({ isOpen, onClose, title, description, children }: ModalPr
     if (!isOpen) return null;
 
     return (
-        <div className="z-50 fixed left-0 top-0 items-center w-screen h-screen backdrop-blur-sm flex justify-center">
-            <div className="w-125 max-w-[90vw] h-auto bg-bg-1 rounded-lg border border-border flex flex-col animate-in fade-in zoom-in duration-200">
-                <div className="w-full h-14 text-text font-medium text-lg py-3 px-4 flex flex-row items-center justify-between border-b border-border">
-                    <p className="font-semibold">{title}</p>
+        <div className="z-50 fixed left-0 top-0 flex items-center justify-center w-screen h-screen backdrop-blur-sm bg-black/40">
+            <div className="w-110 max-w-[90vw] bg-bg-2 rounded-xl border border-border overflow-hidden animate-in fade-in zoom-in duration-200">
+                <div className="flex items-center justify-between px-5 py-4 border-b border-border">
+                    <p className="font-semibold text-lg text-text">{title}</p>
                     <button
                         onClick={onClose}
-                        className="text-text-2 hover:text-text transition-colors"
+                        className="text-text-2 hover:text-text transition-colors rounded-md hover:bg-border/40 p-1"
                     >
-                        <X className="w-5 h-5" />
+                        <X className="w-4 h-4" />
                     </button>
                 </div>
 
                 {description && (
-                    <div className="w-full text-text font-medium text-base px-4 py-4 border-b border-border">
-                        {description}
+                    <div className="px-5 py-4">
+                        <p className="text-text text-sm leading-relaxed">{description}</p>
                     </div>
                 )}
 
-                <div className="w-full flex flex-col gap-3 px-4 py-4">
+                <div className="flex justify-start gap-2 px-5 py-4 border-t border-border">
                     {children}
                 </div>
             </div>
@@ -42,7 +42,7 @@ export function Modal({ isOpen, onClose, title, description, children }: ModalPr
 interface ConfirmModalProps extends Omit<ModalProps, 'children'> {
     confirmText: string;
     onConfirm: () => void;
-    confirmColor?: "red" | "blue" | "orange";
+    confirmColor?: "red" | "blue" | "primary";
     cancelText?: string;
 }
 
@@ -53,23 +53,19 @@ export function ConfirmModal({
     description,
     confirmText,
     onConfirm,
-    confirmColor = "blue",
+    confirmColor = "primary",
     cancelText = "Cancel"
 }: ConfirmModalProps) {
     return (
         <Modal isOpen={isOpen} onClose={onClose} title={title} description={description}>
-            <div className="flex flex-row gap-3 w-full">
-                <Button onClick={onConfirm} color={confirmColor} className="flex-1">
-                    <Check/>
-                    <p>{confirmText}</p>
-                </Button>
-                {cancelText && (
-                    <Button onClick={onClose} color="red" className="flex-1">
-                        <X/>
-                        <p>{cancelText}</p>
-                    </Button>
-                )}
-            </div>
+            <Button onClick={onConfirm} color={confirmColor} className="px-4">
+                <Check/>
+                <span>{confirmText}</span>
+            </Button>
+            <Button onClick={onClose} color="red" className="px-4">
+                <X/>
+                <span>{cancelText}</span>
+            </Button>
         </Modal>
     );
 }

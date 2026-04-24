@@ -47,10 +47,10 @@ export function ServerSettings({ server }: ServerSettingsProps) {
             <div className={"flex flex-col max-h-100 h-100 overflow-y-scroll scrollbar-hide"}>
                 <div className="p-3">
                     <div className="flex items-center gap-2 mb-3">
-                        <Cpu className="w-5 h-5 text-orange-500" />
-                        <p className="text-base font-semibold text-orange-500">Java Settings</p>
+                        <Cpu className="w-5 h-5 text-mauve" />
+                        <p className="text-base font-semibold text-mauve">Java Settings</p>
                     </div>
-                    <div className="space-y-4">
+                    <div>
                         <SettingContainer name="Java Path" description={
                             <span>
                                 Path to your version-compatible Java executable file. <br/>
@@ -85,7 +85,7 @@ export function ServerSettings({ server }: ServerSettingsProps) {
                                             }
                                         }))
                                     }
-                                }} color="orange">
+                                }} color="primary">
                                     <FolderOpen className="w-5 h-5" /><></>
                                 </Button>
                             </div>
@@ -118,8 +118,8 @@ export function ServerSettings({ server }: ServerSettingsProps) {
 
                 <div className="p-3">
                     <div className="flex items-center gap-2 mb-3">
-                        <Trash2 className="w-5 h-5 text-red-500" />
-                        <p className="text-base font-semibold text-red-500">Danger Zone</p>
+                        <Trash2 className="w-5 h-5 text-red" />
+                        <p className="text-base font-semibold text-red">Danger Zone</p>
                     </div>
                     <SettingContainer name="Server Jar" description="">
                         <Select disabled={server.status === "Online"} value={settingServer.server.server_type} options={["Vanilla", "Paper"]} setValue={(newValue) => {
@@ -162,7 +162,7 @@ export function ServerSettings({ server }: ServerSettingsProps) {
             </div>
         </div>
         <div className="flex flex-row w-full space-x-4 bg-bg-2 border-t border-border p-2.5">
-            <Button onClick={() => applySettings()} color={"orange"}>
+            <Button onClick={() => applySettings()} color={"primary"}>
                 <Check className={"w-6 h-6 block"}/>
                 <p>Apply</p>
             </Button>
@@ -178,7 +178,7 @@ export function ServerSettings({ server }: ServerSettingsProps) {
             description="Are you sure you want to do this? All data will be lost."
             confirmText="Delete"
             onConfirm={deleteServer}
-            confirmColor="orange"
+            confirmColor="primary"
             cancelText="Cancel"
         />
         </>

@@ -29,10 +29,10 @@ export function Select({ className, disabled, value, setValue, options }: Select
             <button
                 type="button"
                 className={clsx(
-                    "text-white w-full py-2 px-3 rounded-lg bg-bg-2 border border-border flex items-center justify-betweentext-text appearance-none cursor-pointer transition-colors",
+                    "text-text w-full py-2 px-3 rounded-lg bg-bg-2 border border-border flex items-center justify-betweentext-text appearance-none cursor-pointer transition-colors",
                     disabled
                         ? "opacity-50 cursor-not-allowed pointer-events-none"
-                        : "hover:border-border-2 focus:outline-none focus:border-border-2 focus:ring-1 focus:ring-orange-500/50",
+                        : "hover:border-border-2 focus:outline-none focus:border-border-2 focus:ring-1 focus:ring-mauve/50",
                     className
                 )}
                 disabled={disabled ?? false}
@@ -56,7 +56,7 @@ export function Select({ className, disabled, value, setValue, options }: Select
                             className={clsx(
                                 "w-full px-3 py-2 text-left transition-colors",
                                 value === option
-                                    ? "bg-orange-500/10 text-orange-500"
+                                    ? "bg-mauve/10 text-mauve"
                                     : "text-text hover:bg-border"
                             )}
                             onClick={() => {

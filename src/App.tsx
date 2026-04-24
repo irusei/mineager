@@ -49,7 +49,7 @@ function App() {
     }, [servers])
     
     return (
-        <div className={"flex flex-row min-w-screen min-h-screen max-w-screen max-h-screen bg-neutral-900 overflow-hidden"}>
+        <div className={"flex flex-row min-w-screen min-h-screen max-w-screen max-h-screen bg-bg-1 overflow-hidden"}>
             <Sidebar servers={servers} selectedServer={selectedServer} onSelectedServer={(server: FrontendServer) => setSelectedServer(server)} onAddServer={() => setShowAddServer(true)}/>
             <div className="flex-1">
                 {showAddServer ? <AddServerPanel onAddServer={() => setShowAddServer(false)} /> : selectedServer ? <ServerView server={selectedServer}/> : <NoServerSelected />}

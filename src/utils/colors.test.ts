@@ -3,17 +3,17 @@ import { getConsoleColor, getStatusColor } from './colors'
 
 describe('getStatusColor', () => {
     it('online status', () => {
-        expect(getStatusColor('Online')).toBe('bg-green-500')
+        expect(getStatusColor('Online')).toBe('bg-green')
     })
 
     it('red status', () => {
-        expect(getStatusColor('Offline')).toBe('bg-red-500')
+        expect(getStatusColor('Offline')).toBe('bg-red')
     })
 })
 
 describe('getConsoleColor', () => {
     it('command prefix', () => {
-        expect(getConsoleColor('> command')).toBe('text-white')
+        expect(getConsoleColor('> command')).toBe('text-mauve')
     })
 
     it('info log line', () => {
@@ -21,10 +21,10 @@ describe('getConsoleColor', () => {
     })
 
     it('warning line', () => {
-        expect(getConsoleColor('WARNING: aertgijgsehtiaj')).toBe('text-yellow-400')
+        expect(getConsoleColor('WARNING: aertgijgsehtiaj')).toBe('text-mauve')
     })
 
     it('default line', () => {
-        expect(getConsoleColor('Some regular log line')).toBe('text-green-400')
+        expect(getConsoleColor('Some regular log line')).toBe('text-green')
     })
 })

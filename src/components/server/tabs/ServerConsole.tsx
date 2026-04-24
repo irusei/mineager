@@ -102,7 +102,7 @@ export function ServerConsole({ server, startServer, stopServer }: ServerConsole
             <div className="flex-1 flex flex-col bg-bg-2 border-b border-border overflow-hidden">
                 <div className="px-4 py-3 flex items-center justify-between border-b border-border">
                     <div className="flex items-center gap-3">
-                        <Terminal className="w-5 h-5 text-orange-500" />
+                        <Terminal className="w-5 h-5 text-mauve" />
                         <div>
                             <h2 className="text-sm font-semibold text-text">Console</h2>
                         </div>
@@ -111,7 +111,7 @@ export function ServerConsole({ server, startServer, stopServer }: ServerConsole
                         {server.status === "Offline" ? (
                             <button
                                 onClick={startServer}
-                                className="h-8 px-3 rounded-lg bg-orange-500 text-white text-sm font-medium hover:bg-orange-600 transition-colors flex items-center gap-2"
+                                className="h-8 px-3 rounded-lg bg-mauve text-crust text-sm font-medium hover:bg-mauve/90 transition-colors flex items-center gap-2"
                             >
                                 <Play className="w-4 h-4" />
                                 Start
@@ -119,7 +119,7 @@ export function ServerConsole({ server, startServer, stopServer }: ServerConsole
                         ) : (
                             <button
                                 onClick={stopServer}
-                                className="h-8 px-3 rounded-lg bg-red-500 text-white text-sm font-medium hover:bg-red-600 transition-colors flex items-center gap-2"
+                                className="h-8 px-3 rounded-lg bg-red text-crust text-sm font-medium hover:bg-red/90 transition-colors flex items-center gap-2"
                             >
                                 <Square className="w-4 h-4" />
                                 Stop
@@ -142,7 +142,7 @@ export function ServerConsole({ server, startServer, stopServer }: ServerConsole
 
             <div className="bg-bg-2 px-4 py-4 border-t border-border">
                 <div className="flex items-center gap-2">
-                    <span className="text-orange-500 text-sm font-mono">&gt;</span>
+                    <span className="text-mauve text-sm font-mono">&gt;</span>
                     <input
                         type="text"
                         className="flex-1 h-8 bg-transparent focus:outline-none text-text font-mono placeholder-text-2 text-sm"
@@ -167,7 +167,7 @@ export function ServerConsole({ server, startServer, stopServer }: ServerConsole
                 </p>
                 <div className="flex gap-3">
                     <Button onClick={() => setEulaVisible(false)} color="red" className="flex-1" children={[<p>Cancel</p>]} />
-                    <Button onClick={acceptEula} color="orange" className="flex-1" children={[<p>Accept & Start</p>]} />
+                    <Button onClick={acceptEula} color="primary" className="flex-1" children={[<p>Accept & Start</p>]} />
                 </div>
             </Modal>
           </div>

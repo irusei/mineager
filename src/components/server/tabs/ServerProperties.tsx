@@ -90,10 +90,10 @@ export function ServerProperties({ server }: ServerPropertiesProps) {
             <div className={"flex flex-col max-h-100 h-100 overflow-y-scroll scrollbar-hide"}>
                 <div className="bg-bg-2 p-3">
                     <div className="flex items-center gap-2 mb-3">
-                        <Settings className="w-5 h-5 text-orange-500" />
-                        <p className={"text-base font-semibold text-orange-500"}>General Settings</p>
+                        <Settings className="w-5 h-5 text-mauve" />
+                        <p className={"text-base font-semibold text-mauve"}>General Settings</p>
                     </div>
-                    <div className="space-y-4">
+                    <div>
                         {serverProperties.has('server-port') &&
                             <SettingContainer name={"Server Port"} description={"The server will run on this port"}>
                                 <Input type={"number"} placeholder={"25565"}
@@ -123,10 +123,10 @@ export function ServerProperties({ server }: ServerPropertiesProps) {
 
                 <div className="bg-bg-2 p-3">
                     <div className="flex items-center gap-2 mb-3">
-                        <Globe className="w-5 h-5 text-orange-500" />
-                        <p className={"text-base font-semibold text-orange-500"}>World Settings</p>
+                        <Globe className="w-5 h-5 text-mauve" />
+                        <p className={"text-base font-semibold text-mauve"}>World Settings</p>
                     </div>
-                    <div className="space-y-4">
+                    <div>
                         {serverProperties.has("difficulty") &&
                             <SettingContainer name={"Difficulty"} description={"The difficulty of the world"}>
                                 <Select value={serverProperties.get("difficulty")!} options={["easy", "normal", "hard", "peaceful"]} setValue={(newValue) => modifyPropertyState("difficulty", newValue)}/>
@@ -189,7 +189,7 @@ export function ServerProperties({ server }: ServerPropertiesProps) {
             </div>
         </div>
         <div className={"flex flex-row w-full space-x-4 bg-bg-2 border-t border-border p-2.5"}>
-            <Button onClick={() => applyProperties()} color={"orange"}>
+            <Button onClick={() => applyProperties()} color={"primary"}>
                 <Check className={"w-6 h-6 block"}/>
                 <p>Apply</p>
             </Button>

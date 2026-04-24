@@ -38,7 +38,7 @@ export default function Sidebar({ servers, selectedServer, onSelectedServer, onA
                     <input
                         type="text"
                         className="w-full pl-9 pr-3 py-2 bg-bg-2 border border-border rounded-md
-                                   text-text placeholder-text-2 text-sm focus:outline-none focus:ring-1 focus:ring-orange-500/20"
+                                   text-text placeholder-text-2 text-sm focus:outline-none focus:ring-1 focus:ring-mauve/20"
                         placeholder="Search servers"
                         value={filterSearch}
                         onChange={(event) => setFilterSearch(event.target.value)}
@@ -46,7 +46,7 @@ export default function Sidebar({ servers, selectedServer, onSelectedServer, onA
                 </div>
             </div>
             <div className={"flex"}>
-                <div className={"w-full p-2 flex flex-row space-x-2 font-medium text-gray-400"}>
+                <div className={"w-full p-2 flex flex-row space-x-2 font-medium text-overlay1"}>
                     <ChevronDown/>
                     <p>Servers</p>
                 </div>
@@ -63,7 +63,7 @@ export default function Sidebar({ servers, selectedServer, onSelectedServer, onA
             </div>
 
             <div className="p-3 border-t border-border">
-                <Button onClick={handleAddServer} color="orange" className="gap-2">
+                <Button onClick={handleAddServer} color="primary" className="gap-2">
                     <Plus className="w-4 h-4" />
                     <span className="text-sm">New Server</span>
                 </Button>

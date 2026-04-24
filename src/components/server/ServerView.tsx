@@ -37,31 +37,30 @@ export default function ServerView({ server }: ServerViewProps) {
     return (
         <div className="flex flex-col min-h-full flex-1 bg-bg-1">
             <div className="bg-bg-2 border-b border-border p-4 flex justify-between items-center">
-                <div className="flex items-center gap-4">
-                    <h1 className="text-2xl font-semibold text-text">{server.server.server_name}</h1>
-                    <span className={`px-3 py-1 rounded-full text-sm font-medium
-                                     ${server.status === "Online" ? 'bg-green-500/20 text-green-400' : 'bg-red-500/20 text-red-400'}`}>
-                        {server.status}
-                    </span>
+                <div className="flex items-center gap-2">
+                    <span className={`w-2.5 h-2.5 mt-1 rounded-full ${server.status === "Online" ? 'bg-green' : 'bg-red'}`} />
+                    <span className="text-2xl font-semibold text-text">{server.server.server_name}</span>
                 </div>
-                <button onClick={openFolder} className="text-gray-400 hover:text-text transition-colors duration-150">
+                <button onClick={openFolder} className="text-overlay1 hover:text-text transition-colors duration-150">
                     <FolderOpen className="w-5 h-5" />
                 </button>
             </div>
 
-            <div className="bg-bg-2 border-b border-border flex gap-2 p-2.5">
-                {(["Console", "Settings", "Properties", "Backups"] as Tab[]).map((tabName) => (
-                    <button
-                        key={tabName}
-                        onClick={() => setTab(tabName)}
-                        className={`px-4 py-1.5 rounded-lg text-sm font-medium transition-colors duration-150 border
-                                   ${tab === tabName
-                                     ? 'bg-orange-500/10 text-orange-400 border-orange-500/20 hover:bg-orange-500/200'
-                                     : 'text-gray-400 border-transparent hover:border-border-2 hover:bg-border'}`}
-                    >
-                        {tabName}
-                    </button>
-                ))}
+            <div className="bg-bg-2 border-b border-border">
+                <div className="flex gap-6 px-4 py-3 min-h-13.5 ">
+                    {(["Console", "Settings", "Properties", "Backups"] as Tab[]).map((tabName) => (
+                        <button
+                            key={tabName}
+                            onClick={() => setTab(tabName)}
+                            className={`text-sm font-medium transition-all
+                                       pb-1 -mb-px border-b
+                                       ${tab === tabName
+                                         ? 'text-mauve border-mauve'
+                                         : 'text-overlay1 border-transparent hover:text-text hover:border-overlay1'}`}>
+                            {tabName}
+                        </button>
+                    ))}
+                </div>
             </div>
 
             <div className="flex-1">
