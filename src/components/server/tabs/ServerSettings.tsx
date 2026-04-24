@@ -7,6 +7,7 @@ import { invoke } from "@tauri-apps/api/core";
 import { SettingContainer } from "../../ui/SettingContainer.tsx";
 import { Input } from "../../ui/Input.tsx";
 import { Select } from "../../ui/Select.tsx";
+import { Slider } from "../../ui/Slider.tsx";
 import { sortVersions } from "../../../utils/versions.ts";
 import { open } from "@tauri-apps/plugin-dialog";
 
@@ -102,15 +103,22 @@ export function ServerSettings({ server }: ServerSettingsProps) {
                             }}/>
                         </SettingContainer>
                         <SettingContainer name="Allocated RAM" description="Maximum RAM that can be used on the server.">
-                            <Input type="text" value={settingServer.server.allocated_ram} onChange={(event) => {
-                                setSettingServer((oldSettingServer) => ({
-                                    ...oldSettingServer,
-                                    server: {
-                                        ...oldSettingServer.server,
-                                        allocated_ram: event.target.value
-                                    }
-                                }))
-                            }}/>
+                            <Slider
+                                min={512}
+                                max={8192}
+                                step={512}
+                                value={isNaN(parseInt(settingServer.server.allocated_ram)) ? 4096 : parseInt(settingServer.server.allocated_ram)}
+                                unit="M"
+                                onChange={(mb) => {
+                                    setSettingServer((oldSettingServer) => ({
+                                        ...oldSettingServer,
+                                        server: {
+                                            ...oldSettingServer.server,
+                                            allocated_ram: `${mb}M`
+                                        }
+                                    }));
+                                }}
+                            />
                         </SettingContainer>
                     </div>
                 </div>
