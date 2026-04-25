@@ -199,7 +199,7 @@ export function ServerConsole({ server, startServer, stopServer }: ServerConsole
             {/* I'm so sorry for this :( */}
             <div
                 ref={consoleRef}
-                className="max-w-235 min-w-235 min-h-90 max-h-90 flex-1 px-4 py-3 overflow-x-auto overflow-y-auto font-mono text-sm scrollbar-hide bg-bg-1"
+                className="max-w-235 min-w-235 min-h-89.5 max-h-89.5 flex-1 px-4 py-3 overflow-x-auto overflow-y-auto font-mono text-sm scrollbar-hide bg-bg-1"
             >
                 {filteredConsoleOutput.map((line, index) => (
                     <p key={index} className={`${getConsoleColor(line)} whitespace-pre-wrap wrap-break-word py-0.5`}>

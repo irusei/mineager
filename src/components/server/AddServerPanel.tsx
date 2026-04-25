@@ -99,7 +99,7 @@ export function AddServerPanel({ onAddServer }: AddServerPanelProps) {
                 </div>
             </div>
 
-            <div className="p-4 border-t border-border bg-bg-2 flex justify-end">
+            <div className="p-2.5 border-t border-border bg-bg-2 flex justify-end h-15.75 max-h-15.75">
                 <div className="flex gap-3">
                     <Button onClick={() => onAddServer()} color="red" className="px-6">
                         <X className="w-4 h-4" />

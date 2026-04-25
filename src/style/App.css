@@ -15,9 +15,32 @@
   --color-crust: #11111b;
   --color-overlay1: #7f849c;
 }
+
+.theme-latte {
+  --color-border: #9ca0b0;
+  --color-border-2: #8c8fa1;
+  --color-text: #4c4f69;
+  --color-text-2: #6c6f85;
+  --color-bg-1: #eff1f5;
+  --color-bg-2: #e6e9ef;
+  --color-mauve: #8839ef;
+  --color-red: #d20f39;
+  --color-green: #40a02b;
+  --color-blue: #1e66f5;
+  --color-lavender: #7287fd;
+  --color-crust: #dce0e8;
+  --color-overlay1: #8c8fa1;
+}
+
 body {
     font-family: "Segoe UI", -apple-system, BlinkMacSystemFont, sans-serif;
-    background-color: --color-bg-1;
+    background-color: var(--color-bg-1);
+    color: var(--color-text);
+    transition: background-color 0.2s ease, color 0.2s ease;
+}
+
+* {
+    transition: background-color 0.2s ease, color 0.2s ease, border-color 0.2s ease;
 }
 
 .scrollbar-hide {

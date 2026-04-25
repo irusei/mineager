@@ -1,6 +1,7 @@
 import { ChevronDown, Plus, Search } from "lucide-react";
 import { FrontendServer } from "../../types/types.tsx";
 import { SidebarServer } from "./SidebarServer.tsx";
+import { ThemeToggle } from "../ui/ThemeToggle.tsx";
 import { useEffect, useState } from "react";
 import Button from "../ui/Button.tsx";
 
@@ -27,8 +28,9 @@ export default function Sidebar({ servers, selectedServer, onSelectedServer, onA
     return (
         <div className="h-screen w-64 bg-bg-2 border-r border-border flex flex-col">
             <div className="p-4 border-b border-border">
-                <div className="flex items-center gap-2 h-8">
+                <div className="flex items-center justify-between h-8">
                     <span className="font-semibold text-lg text-text">mineager</span>
+                    <ThemeToggle />
                 </div>
             </div>
 
