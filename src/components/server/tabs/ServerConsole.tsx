@@ -59,7 +59,6 @@ export function ServerConsole({ server, startServer, stopServer }: ServerConsole
         let lcl = consoleLine.toLowerCase();
         // find occurences of words
         let index = 0;
-        let highlightIdx = 0;
         while (index < consoleLine.length) {
             if (lcs[0] != lcl[index]) {
                 elements.push(consoleLine[index]);
@@ -69,7 +68,7 @@ export function ServerConsole({ server, startServer, stopServer }: ServerConsole
 
             if (lcl.slice(index, index + lcs.length) === lcs) {
                 elements.push(
-                    <mark key={`${index}-${highlightIdx++}`}>
+                    <mark key={`${consoleOutput.indexOf(consoleLine)}-${index}`}>
                         {consoleLine.slice(index, index + lcs.length)}
                     </mark>
                 );
