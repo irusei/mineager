@@ -3,7 +3,7 @@ import { FrontendServer } from "../../../types/types.tsx";
 import { invoke } from "@tauri-apps/api/core";
 import { getConsoleColor } from "../../../utils/colors.ts";
 import { listen } from "@tauri-apps/api/event";
-import { Terminal, Play, Square } from "lucide-react";
+import { Terminal, Play, Square, Search } from "lucide-react";
 import { Modal } from "../../ui/Modal";
 import Button from "../../ui/Button";
 interface ConsoleUpdatePayload {
@@ -21,10 +21,12 @@ export function ServerConsole({ server, startServer, stopServer }: ServerConsole
     const consoleRef = useRef<HTMLDivElement>(null);
     const [consoleInput, setConsoleInput] = useState<string>("");
     const [consoleOutput, setConsoleOutput] = useState<string[]>(["Server offline"]);
+    const [filteredConsoleOutput, setFilteredConsoleOutput] = useState<string[]>(consoleOutput);
     const [shouldScroll, setShouldScroll] = useState<boolean>(false);
     const [eulaVisible, setEulaVisible] = useState<boolean>(false);
+    const [consoleSearch, setConsoleSearch] = useState<string>("");
 
-    function shouldScrollToBottom() {
+    function shouldScrollToBottom() {   
         const consoleDiv: HTMLDivElement | null = consoleRef.current;
         if (consoleDiv === null) return false;
         const height = Math.abs(consoleDiv.scrollHeight - consoleDiv.scrollTop);
@@ -37,6 +39,51 @@ export function ServerConsole({ server, startServer, stopServer }: ServerConsole
         consoleDiv.scrollTop = consoleDiv.scrollHeight;
     }
 
+    function updateFilter(output: string[]) {
+        if (consoleSearch === '') {
+            setFilteredConsoleOutput(output);
+            return;
+        }
+
+        const newConsoleOutput = output.filter((line) => line.toLowerCase().includes(consoleSearch.toLowerCase()));
+        setFilteredConsoleOutput(newConsoleOutput);
+    }
+
+    // make highlighted logs when searching
+    function getSearchHighlights(consoleLine: string) {
+        if (consoleSearch === '')
+            return consoleLine;
+
+        let elements = [];
+        let lcs = consoleSearch.toLowerCase();
+        let lcl = consoleLine.toLowerCase();
+        // find occurences of words
+        let index = 0;
+        let highlightIdx = 0;
+        while (index < consoleLine.length) {
+            if (lcs[0] != lcl[index]) {
+                elements.push(consoleLine[index]);
+                index++;
+                continue
+            }
+
+            if (lcl.slice(index, index + lcs.length) === lcs) {
+                elements.push(
+                    <mark key={`${index}-${highlightIdx++}`}>
+                        {consoleLine.slice(index, index + lcs.length)}
+                    </mark>
+                );
+
+                index += consoleSearch.length;
+                continue
+            }
+
+            elements.push(consoleLine[index]);
+            index++;
+        }
+
+        return elements;
+    }
     function fetchConsole() {
         if (server.status === "Online") {
             invoke("get_stdout", { serverId: server.server.server_id }).then((res) => {
@@ -75,9 +122,20 @@ export function ServerConsole({ server, startServer, stopServer }: ServerConsole
             setEulaVisible(true);
         }
 
+        // The world if react was decent and I could just hook this into the listen normally without stupid userefs
+        updateFilter(consoleOutput);
+
+    }, [consoleOutput]);
+
+    // scrolling to bottom behavior
+    useEffect(() => {
         if (shouldScroll)
             scrollToBottom();
-    }, [consoleOutput]);
+    }, [filteredConsoleOutput]);
+
+    useEffect(() => {
+        updateFilter(consoleOutput);
+    }, [consoleSearch])
 
     async function acceptEula() {
         await invoke('set_eula_accepted', { serverId: server.server.server_id, accepted: true });
@@ -107,7 +165,18 @@ export function ServerConsole({ server, startServer, stopServer }: ServerConsole
                             <h2 className="text-sm font-semibold text-text">Console</h2>
                         </div>
                     </div>
-                    <div className="flex gap-2">
+                    <div className="flex gap-2 items-center">
+                        <div className="relative">
+                            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-text-2" />
+                            <input
+                                type="text"
+                                className="w-full pl-9 pr-3 py-1.5 bg-bg-2 border border-border rounded-md
+                                        text-text placeholder-text-2 text-sm focus:outline-none focus:ring-1 focus:ring-mauve/20"
+                                value={consoleSearch}
+                                onChange={(e) => setConsoleSearch(e.target.value)}
+                                placeholder="Search logs"
+                            />
+                        </div>
                         {server.status === "Offline" ? (
                             <button
                                 onClick={startServer}
@@ -133,9 +202,9 @@ export function ServerConsole({ server, startServer, stopServer }: ServerConsole
                 ref={consoleRef}
                 className="max-w-235 min-w-235 min-h-90 max-h-90 flex-1 px-4 py-3 overflow-x-auto overflow-y-auto font-mono text-sm scrollbar-hide bg-bg-1"
             >
-                {consoleOutput.map((line, index) => (
+                {filteredConsoleOutput.map((line, index) => (
                     <p key={index} className={`${getConsoleColor(line)} whitespace-pre-wrap wrap-break-word py-0.5`}>
-                        {line}
+                        {getSearchHighlights(line)}
                     </p>
                 ))}
             </div>
