@@ -75,6 +75,7 @@ async fn create_server(server_name: String, server_type: String, version: String
         java_path: java_path,
         backups: Vec::new(),
         auto_backups: false,
+        auto_backup_on_start: false,
         auto_backup_interval: String::from("0 * * * *")
     };
 
@@ -100,7 +101,7 @@ fn start_server(server_id: &str) {
     let server = servers.iter().find(|s| s.server_id == server_id).cloned();
     process::start_server(server_id).expect("Failed to launch server");
     if let Some(server) = server {
-        if server.auto_backups {
+        if server.auto_backup_on_start {
             if let Err(e) = server.create_backup() {
                 eprintln!("Failed to create backup on startup for server {}: {}", server.server_id, e);
             }
@@ -172,10 +173,10 @@ async fn restore_backup(server_id: &str, backup_name: &str) -> Result<(), String
 }
 
 #[tauri::command]
-async fn update_auto_backup(server_id: &str, enabled: bool, interval: String) -> Result<(), String> {
+async fn update_auto_backup(server_id: &str, enabled: bool, interval: String, on_start: bool) -> Result<(), String> {
     let servers = get_cloned_servers();
     if let Some(server) = servers.iter().find(|s| s.server_id == server_id) {
-        server.set_auto_backup(enabled, interval.clone());
+        server.set_auto_backup(enabled, interval.clone(), on_start);
         if enabled {
             server.add_backup_job(&interval).await;
         } else {

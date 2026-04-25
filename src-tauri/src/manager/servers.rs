@@ -31,6 +31,8 @@ pub(crate) struct Server {
     pub(crate) backups: Vec<String>,
     #[serde(default)]
     pub(crate) auto_backups: bool,
+    #[serde(default)]
+    pub(crate) auto_backup_on_start: bool,
     #[serde(default = "default_auto_backup_interval")]
     pub(crate) auto_backup_interval: String, // crontab notation
 }
@@ -73,6 +75,7 @@ impl Server {
             allocated_ram: self.allocated_ram.clone(),
             backups: self.backups.clone(),
             auto_backups: self.auto_backups,
+            auto_backup_on_start: self.auto_backup_on_start,
             auto_backup_interval: self.auto_backup_interval.clone()
         };
 
@@ -118,6 +121,7 @@ impl Server {
                 allocated_ram: self.allocated_ram.clone(),
                 backups: self.backups.clone(),
                 auto_backups: self.auto_backups,
+                auto_backup_on_start: self.auto_backup_on_start,
                 auto_backup_interval: self.auto_backup_interval.clone()
             };
 
@@ -145,6 +149,7 @@ impl Server {
                     allocated_ram: self.allocated_ram.clone(),
                     backups: self.backups.clone(),
                     auto_backups: self.auto_backups,
+                    auto_backup_on_start: self.auto_backup_on_start,
                     auto_backup_interval: self.auto_backup_interval.clone()
                 };
             }
@@ -263,13 +268,14 @@ impl Server {
         }
     }
  
-    pub fn set_auto_backup(&self, enabled: bool, interval: String) {
+    pub fn set_auto_backup(&self, enabled: bool, interval: String, on_start: bool) {
         {
             let mut servers = SERVERS.lock().unwrap();
             if let Some(index) = servers.iter().position(|s| s.server_id == self.server_id) {
                 let mut server = servers[index].clone();
                 server.auto_backups = enabled;
                 server.auto_backup_interval = interval;
+                server.auto_backup_on_start = on_start;
                 servers[index] = server;
             }
         }

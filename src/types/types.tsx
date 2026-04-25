@@ -10,6 +10,7 @@ interface MinecraftServer {
     allocated_ram: string,
     launch_args: string,
     auto_backups: boolean,
+    auto_backup_on_start: boolean,
     auto_backup_interval: string,
 }
 

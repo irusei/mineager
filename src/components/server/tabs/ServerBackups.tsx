@@ -24,6 +24,7 @@ export function ServerBackups({ server }: ServerBackupsProps) {
     const [showRestoreModal, setShowRestoreModal] = useState<string | null>(null);
     const [autoBackups, setAutoBackups] = useState(server.server.auto_backups);
     const [cronInterval, setCronInterval] = useState(server.server.auto_backup_interval);
+    const [backupOnStart, setBackupOnStart] = useState(server.server.auto_backup_on_start);
 
     async function loadBackups() {
         const result = await invoke("get_backups", { serverId: server.server.server_id }) as BackupEntry[];
@@ -37,21 +38,36 @@ export function ServerBackups({ server }: ServerBackupsProps) {
         setShowLoading(false);
     }
 
-    async function toggleAutoBackups() {
-        setAutoBackups(!autoBackups);
-        await invoke("update_auto_backup", {
-            serverId: server.server.server_id,
-            enabled: !autoBackups,
-            interval: cronInterval
-        });
-    }
-
-    async function updateCronInterval() {
+    async function updateCron() {
         await invoke("update_auto_backup", {
             serverId: server.server.server_id,
             enabled: autoBackups,
-            interval: cronInterval
+            interval: cronInterval,
+            onStart: backupOnStart
         });
+    }
+    
+    async function updateAutoBackup() {
+        let newAutoBackup = !autoBackups;
+        await invoke("update_auto_backup", {
+            serverId: server.server.server_id,
+            enabled: newAutoBackup,
+            interval: cronInterval,
+            onStart: backupOnStart
+        });
+
+        setAutoBackups(newAutoBackup);
+    }
+    
+    async function updateBackupOnStart() {
+        let newBackupOnStart = !backupOnStart;
+        await invoke("update_auto_backup", {
+            serverId: server.server.server_id,
+            enabled: autoBackups,
+            interval: cronInterval,
+            onStart: newBackupOnStart
+        });
+        setBackupOnStart(newBackupOnStart);
     }
 
     async function doDeleteBackup() {
@@ -92,6 +108,10 @@ export function ServerBackups({ server }: ServerBackupsProps) {
 
     useEffect(() => {
         loadBackups();
+
+        setAutoBackups(server.server.auto_backups);
+        setBackupOnStart(server.server.auto_backup_on_start);
+        setCronInterval(server.server.auto_backup_interval);
     }, [server.server.server_id]);
 
     return (
@@ -108,9 +128,14 @@ export function ServerBackups({ server }: ServerBackupsProps) {
                             <span>Create Backup</span>
                         </Button>
                     </SettingContainer>
+                    <SettingContainer name="Backup on Startup" description="Create a backup automatically every time the server starts.">
+                        <div className="flex items-center gap-3">
+                            <Switch checked={backupOnStart} onChecked={updateBackupOnStart} />
+                        </div>
+                    </SettingContainer>
                     <SettingContainer name="Auto Backups" description="Automatically backup the server at a set interval.">
                         <div className="flex items-center gap-3">
-                            <Switch checked={autoBackups} onChecked={toggleAutoBackups} />
+                            <Switch checked={autoBackups} onChecked={updateAutoBackup} />
                         </div>
                     </SettingContainer>
                     {autoBackups && (
@@ -122,7 +147,7 @@ export function ServerBackups({ server }: ServerBackupsProps) {
                                         placeholder="0 0 * * * *"
                                         value={cronInterval}
                                         onChange={(e) => setCronInterval(e.target.value)}
-                                        onBlur={updateCronInterval}
+                                        onBlur={updateCron}
                                         className="flex-1"
                                     />
                                 </div>
