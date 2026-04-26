@@ -80,6 +80,8 @@ export function ServerProperties({ server }: ServerPropertiesProps) {
         reloadProperties()
     }, [server.server.server_id]);
 
+    const isOnline = server.status === "Online";
+
     if (serverProperties === null)
         return <NoPropertiesFound />;
         
@@ -96,21 +98,21 @@ export function ServerProperties({ server }: ServerPropertiesProps) {
                     <div>
                         {serverProperties.has('server-port') &&
                             <SettingContainer name={"Server Port"} description={"The server will run on this port"}>
-                                <Input type={"number"} placeholder={"25565"}
+                                <Input type={"number"} placeholder={"25565"} disabled={isOnline}
                                     value={serverProperties.get("server-port")!}
                                     onChange={(event) => modifyPropertyState("server-port", event.target.value)}/>
                             </SettingContainer>
                         }
                         {serverProperties.has("max-players") &&
                             <SettingContainer name={"Max Players"} description={"The maximum amount of players"}>
-                                <Input type={"number"} placeholder={"20"}
+                                <Input type={"number"} placeholder={"20"} disabled={isOnline}
                                     value={serverProperties.get("max-players")!}
                                     onChange={(event) => modifyPropertyState("max-players", event.target.value)}/>
                             </SettingContainer>
                         }
                         {serverProperties.has("online-mode") &&
                             <SettingContainer name={"Online Mode"} description={"Players must be authenticated to join"}>
-                                <Switch checked={getBoolPropertyState("online-mode")} onChecked={(checked) => modifyBoolPropertyState("online-mode", checked)}/>
+                                <Switch checked={getBoolPropertyState("online-mode")} disabled={isOnline} onChecked={(checked) => modifyBoolPropertyState("online-mode", checked)}/>
                             </SettingContainer>
                         }
                     </div>
@@ -124,57 +126,57 @@ export function ServerProperties({ server }: ServerPropertiesProps) {
                     <div>
                         {serverProperties.has("difficulty") &&
                             <SettingContainer name={"Difficulty"} description={"The difficulty of the world"}>
-                                <Select value={serverProperties.get("difficulty")!} options={["easy", "normal", "hard", "peaceful"]} setValue={(newValue) => modifyPropertyState("difficulty", newValue)}/>
+                                <Select value={serverProperties.get("difficulty")!} options={["easy", "normal", "hard", "peaceful"]} disabled={isOnline} setValue={(newValue) => modifyPropertyState("difficulty", newValue)}/>
                             </SettingContainer>
                         }
                         {serverProperties.has("hardcore") &&
                             <SettingContainer name={"Hardcore"} description={"Perma-death mode"}>
-                                <Switch checked={getBoolPropertyState("hardcore")} onChecked={(checked) => modifyBoolPropertyState("hardcore", checked)}/>
+                                <Switch checked={getBoolPropertyState("hardcore")} disabled={isOnline} onChecked={(checked) => modifyBoolPropertyState("hardcore", checked)}/>
                             </SettingContainer>
                         }
                         {serverProperties.has("gamemode") &&
                             <SettingContainer name={"Gamemode"} description={"The default gamemode"}>
-                                <Select value={serverProperties.get("gamemode")!} options={["survival", "creative", "adventure", "spectator"]} setValue={(newValue) => modifyPropertyState("gamemode", newValue)}/>
+                                <Select value={serverProperties.get("gamemode")!} options={["survival", "creative", "adventure", "spectator"]} disabled={isOnline} setValue={(newValue) => modifyPropertyState("gamemode", newValue)}/>
                             </SettingContainer>
                         }
                         {serverProperties.has("spawn-protection") &&
                             <SettingContainer name={"Spawn Protection"} description={"The size (in blocks) of the spawn protected area"}>
-                                <Input type={"number"} placeholder={"16"}
+                                <Input type={"number"} placeholder={"16"} disabled={isOnline}
                                     value={serverProperties.get("spawn-protection")!}
                                     onChange={(event) => modifyPropertyState("spawn-protection", event.target.value)}/>
                             </SettingContainer>
                         }
                         {serverProperties.has("view-distance") &&
                             <SettingContainer name={"Allowed Render Distance"} description={"The maximum render distance a player can have"}>
-                                <Input type={"number"} placeholder={"10"}
+                                <Input type={"number"} placeholder={"10"} disabled={isOnline}
                                     value={serverProperties.get("view-distance")!}
                                     onChange={(event) => modifyPropertyState("view-distance", event.target.value)}/>
                             </SettingContainer>
                         }
                         {serverProperties.has("simulation-distance") &&
                             <SettingContainer name={"Simulation Distance"} description={"How many chunks around the player the server updates"}>
-                                <Input type={"number"} placeholder={"10"}
+                                <Input type={"number"} placeholder={"10"} disabled={isOnline}
                                     value={serverProperties.get("simulation-distance")!}
                                     onChange={(event) => modifyPropertyState("simulation-distance", event.target.value)}/>
                             </SettingContainer>
                         }
                         {serverProperties.has("level-name") &&
                             <SettingContainer name={"World Name"} description={"The name of the world folder"}>
-                                <Input type={"text"} placeholder={"Unnamed World"}
+                                <Input type={"text"} placeholder={"Unnamed World"} disabled={isOnline}
                                     value={serverProperties.get("level-name")!}
                                     onChange={(event) => modifyPropertyState("level-name", event.target.value)}/>
                             </SettingContainer>
                         }
                         {serverProperties.has("level-seed") &&
                             <SettingContainer name={"World Seed"} description={"The seed for world generation"}>
-                                <Input type={"text"}
+                                <Input type={"text"} disabled={isOnline}
                                     value={serverProperties.get("level-seed")!}
                                     onChange={(event) => modifyPropertyState("level-seed", event.target.value)}/>
                             </SettingContainer>
                         }
                         {serverProperties.has("level-type") &&
                             <SettingContainer name={"World Type"} description={"The type of the world. Make sure to escape colons"}>
-                                <Input type={"text"} placeholder={"minecraft\\:normal"}
+                                <Input type={"text"} placeholder={"minecraft\\:normal"} disabled={isOnline}
                                     value={serverProperties.get("level-type")!}
                                     onChange={(event) => modifyPropertyState("level-type", event.target.value)}/>
                             </SettingContainer>
@@ -184,11 +186,11 @@ export function ServerProperties({ server }: ServerPropertiesProps) {
             </div>
         </div>
         <div className={"flex flex-row w-full space-x-4 bg-bg-2 border-t border-border p-2.5"}>
-            <Button onClick={() => applyProperties()} color={"primary"}>
+            <Button onClick={() => applyProperties()} color={"primary"} disabled={isOnline}>
                 <Check className={"w-4 h-4"}/>
                 <p>Apply</p>
             </Button>
-            <Button onClick={() => reloadProperties()} color={"red"}>
+            <Button onClick={() => reloadProperties()} color={"red"} disabled={isOnline}>
                 <X className={"w-4 h-4"}/>
                 <p>Revert</p>
             </Button>
