@@ -6,8 +6,9 @@ import { invoke } from "@tauri-apps/api/core";
 import { ServerProperties } from "./tabs/ServerProperties.tsx";
 import { ServerBackups } from "./tabs/ServerBackups.tsx";
 import { FolderOpen } from "lucide-react";
+import { ServerWhitelist } from "./tabs/ServerWhitelist.tsx";
 
-export type Tab = "Console" | "Settings" | "Properties" | "Backups";
+export type Tab = "Console" | "Settings" | "Properties" | "Backups" | "Whitelist";
 
 interface ServerViewProps {
     server: FrontendServer
@@ -47,8 +48,8 @@ export default function ServerView({ server }: ServerViewProps) {
             </div>
 
             <div className="bg-bg-2 border-b border-border">
-                <div className="flex gap-6 px-4 py-3 min-h-13.5 ">
-                    {(["Console", "Settings", "Properties", "Backups"] as Tab[]).map((tabName) => (
+                <div className="flex gap-6 px-4 py-3 min-h-13.5 overflow-x-auto scrollbar-hide">
+                    {(["Console", "Settings", "Properties", "Backups", "Whitelist"] as Tab[]).map((tabName) => (
                         <button
                             key={tabName}
                             onClick={() => setTab(tabName)}
@@ -68,6 +69,7 @@ export default function ServerView({ server }: ServerViewProps) {
                 {tab === "Settings" && <ServerSettings server={server}/>}
                 {tab === "Properties" && <ServerProperties server={server}/>}
                 {tab === "Backups" && <ServerBackups server={server}/>}
+                {tab === "Whitelist" && <ServerWhitelist server={server}/>}
             </div>
         </div>
     )

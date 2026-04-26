@@ -3,7 +3,7 @@ use std::sync::{LazyLock, Mutex};
 use serde::{Deserialize, Serialize};
 use tauri::{Emitter, Manager, WindowEvent};
 
-use crate::{java::{detector::get_jre_version}, manager::{process, servers::{get_cloned_servers, Server}, cron}, minecraft::versions::{get_paper_versions, get_vanilla_versions}, utils::path::sanitize_name};
+use crate::{java::detector::get_jre_version, manager::{cron, process, servers::{Server, get_cloned_servers}, whitelist::WhitelistEntry}, minecraft::versions::{get_paper_versions, get_vanilla_versions}, utils::path::sanitize_name};
 
 mod minecraft;
 mod manager;
@@ -210,6 +210,55 @@ fn open_backup_folder(server_id: &str) {
     }
 }
 
+#[tauri::command(async)]
+async fn add_whitelist_entry(server_id: &str, username: &str) -> Result<(), String> {
+    let servers = get_cloned_servers();
+    if let Some(server) = servers.iter().find(|s| s.server_id == server_id) {
+        server.add_whitelist_entry(username).await.map_err(|e| e.to_string())
+    } else {
+        Ok(())
+    }
+}
+
+#[tauri::command]
+fn list_whitelist_entries(server_id: &str) -> Result<Vec<WhitelistEntry>, String> {
+    let servers = get_cloned_servers();
+    if let Some(server) = servers.iter().find(|s| s.server_id == server_id) {
+        server.read_whitelist().map_err(|e| e.to_string())
+    } else {
+        Ok(vec![])
+    }
+}
+
+#[tauri::command(async)]
+fn remove_whitelist_entry(server_id: &str, entry: WhitelistEntry) -> Result<(), String> {
+    let servers = get_cloned_servers();
+    if let Some(server) = servers.iter().find(|s| s.server_id == server_id) {
+        server.remove_whitelist_entry(&entry).map_err(|e| e.to_string())
+    } else {
+        Ok(())
+    }
+}
+
+#[tauri::command]
+fn set_whitelist_enabled(server_id: &str, enabled: bool) -> Result<(), String> {
+    let servers = get_cloned_servers();
+    if let Some(server) = servers.iter().find(|s| s.server_id == server_id) {
+        server.set_whitelist_enabled(enabled).map_err(|e| e.to_string())
+    } else {
+        Ok(())
+    }
+}
+
+#[tauri::command]
+fn is_whitelist_enabled(server_id: &str) -> bool {
+    let servers = get_cloned_servers();
+    if let Some(server) = servers.iter().find(|s| s.server_id == server_id) {
+        server.is_whitelist_enabled()
+    } else {
+        false
+    }
+}
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
@@ -229,7 +278,8 @@ pub fn run() {
         })
         .invoke_handler(tauri::generate_handler![init_window_properties, fetch_versions, create_server, update_server, 
             start_server, get_stdout, set_eula_accepted, write_stdin, read_properties_lines, write_properties, remove_server,
-            get_backups, create_backup, delete_backup, restore_backup, update_auto_backup, open_server_folder, open_backup_folder])
+            get_backups, create_backup, delete_backup, restore_backup, update_auto_backup, open_server_folder, open_backup_folder,
+            add_whitelist_entry, remove_whitelist_entry, list_whitelist_entries, set_whitelist_enabled, is_whitelist_enabled])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
 }

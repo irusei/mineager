@@ -137,9 +137,9 @@ export function ServerConsole({ server, startServer, stopServer }: ServerConsole
     }, [consoleSearch])
 
     async function acceptEula() {
+        setEulaVisible(false);
         await invoke('set_eula_accepted', { serverId: server.server.server_id, accepted: true });
         await invoke('start_server', { serverId: server.server.server_id });
-        setEulaVisible(false);
     }
 
     async function handleCommand() {
@@ -227,16 +227,11 @@ export function ServerConsole({ server, startServer, stopServer }: ServerConsole
                 isOpen={eulaVisible}
                 onClose={() => setEulaVisible(false)}
                 title="EULA Required"
-                description="Accept before starting"
+                description="You need to accept the Minecraft EULA (End User License Agreement) before you can start this server.
+                    Please visit the official Minecraft website to read the EULA and then accept it below."
             >
-                <p className="text-text text-sm mb-6">
-                    You need to accept the Minecraft EULA (End User License Agreement) before you can start this server.
-                    Please visit the official Minecraft website to read the EULA and then accept it below.
-                </p>
-                <div className="flex gap-3">
-                    <Button onClick={() => setEulaVisible(false)} color="red" className="flex-1" children={[<p>Cancel</p>]} />
-                    <Button onClick={acceptEula} color="primary" className="flex-1" children={[<p>Accept & Start</p>]} />
-                </div>
+                <Button onClick={() => setEulaVisible(false)} color="red" className="flex-1" children={[<p>Cancel</p>]} />
+                <Button onClick={acceptEula} color="primary" className="flex-1" children={[<p>Accept & Start</p>]} />
             </Modal>
           </div>
         </div>

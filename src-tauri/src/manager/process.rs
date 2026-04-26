@@ -69,7 +69,7 @@ pub fn start_server(server_id: &str) -> Result<(), Box<dyn std::error::Error>>{
             .args(server.launch_args.split_whitespace())
             .arg("-jar")
             .arg("server.jar")
-            .arg("--nogui");
+            .arg("nogui");
 
         // create no window on windows
         #[cfg(windows)] {

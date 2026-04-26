@@ -108,11 +108,6 @@ export function ServerProperties({ server }: ServerPropertiesProps) {
                                     onChange={(event) => modifyPropertyState("max-players", event.target.value)}/>
                             </SettingContainer>
                         }
-                        {serverProperties.has("white-list") &&
-                            <SettingContainer name={"Whitelist"} description={"Restrict who is allowed to join"}>
-                                <Switch checked={getBoolPropertyState("white-list")} onChecked={(checked) => modifyBoolPropertyState("white-list", checked)}/>
-                            </SettingContainer>
-                        }
                         {serverProperties.has("online-mode") &&
                             <SettingContainer name={"Online Mode"} description={"Players must be authenticated to join"}>
                                 <Switch checked={getBoolPropertyState("online-mode")} onChecked={(checked) => modifyBoolPropertyState("online-mode", checked)}/>
