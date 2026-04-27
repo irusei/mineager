@@ -15,7 +15,7 @@ export function Modal({ isOpen, onClose, title, description, body, footer }: Mod
 
     return (
         <div className="z-50 fixed left-0 top-0 flex items-center justify-center w-screen h-screen backdrop-blur-sm bg-black/40">
-            <div className="w-110 max-w-[90vw] bg-bg-2 rounded-xl border border-border overflow-hidden animate-in fade-in zoom-in duration-200">
+            <div className="w-110 max-w-[90vw] bg-bg-2 rounded-xl border border-border animate-in fade-in zoom-in duration-200">
                 <div className="flex items-center justify-between px-5 py-4 border-b border-border">
                     <p className="font-semibold text-lg text-text">{title}</p>
                     <button
