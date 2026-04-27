@@ -3,8 +3,8 @@ import Sidebar from "./components/sidebar/Sidebar.tsx";
 import {FrontendServer} from "./types/types.tsx";
 import {useEffect, useState} from "react";
 import ServerView from "./components/server/ServerView.tsx";
-import {AddServerPanel} from "./components/server/AddServerPanel.tsx";
-import {NoServerSelected} from "./components/server/placeholders/NoServerSelected.tsx";
+import { AddServerPanel } from "./components/server/AddServerPanel.tsx";
+import { NoServerSelected } from "./components/server/placeholders/NoServerSelected.tsx";
 import {invoke} from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
 
@@ -52,7 +52,8 @@ function App() {
         <div className={"flex flex-row min-w-screen min-h-screen max-w-screen max-h-screen bg-bg-1 overflow-hidden"}>
             <Sidebar servers={servers} selectedServer={selectedServer} onSelectedServer={(server: FrontendServer) => setSelectedServer(server)} onAddServer={() => setShowAddServer(true)}/>
             <div className="flex-1">
-                {showAddServer ? <AddServerPanel onAddServer={() => setShowAddServer(false)} /> : selectedServer ? <ServerView server={selectedServer}/> : <NoServerSelected />}
+                {selectedServer ? <ServerView server={selectedServer}/> : <NoServerSelected />}
+                <AddServerPanel isOpen={showAddServer} onOpenChange={(open) => setShowAddServer(open)} />
             </div>
         </div>
     )

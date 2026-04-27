@@ -229,10 +229,13 @@ export function ServerConsole({ server, startServer, stopServer }: ServerConsole
                 title="EULA Required"
                 description="You need to accept the Minecraft EULA (End User License Agreement) before you can start this server.
                     Please visit the official Minecraft website to read the EULA and then accept it below."
-            >
-                <Button onClick={() => setEulaVisible(false)} color="red" className="flex-1" children={[<p>Cancel</p>]} />
-                <Button onClick={acceptEula} color="primary" className="flex-1" children={[<p>Accept & Start</p>]} />
-            </Modal>
+                footer={
+                    <>
+                        <Button onClick={() => setEulaVisible(false)} color="red" className="flex-1" children={[<p>Cancel</p>]} />
+                        <Button onClick={acceptEula} color="primary" className="flex-1" children={[<p>Accept & Start</p>]} />
+                    </>
+                }
+            />
           </div>
         </div>
     );

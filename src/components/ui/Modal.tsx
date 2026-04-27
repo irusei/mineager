@@ -6,10 +6,11 @@ interface ModalProps {
     onClose: () => void;
     title: string;
     description?: string;
-    children?: React.ReactNode;
+    body?: React.ReactNode;
+    footer: React.ReactNode;
 }
 
-export function Modal({ isOpen, onClose, title, description, children }: ModalProps) {
+export function Modal({ isOpen, onClose, title, description, body, footer }: ModalProps) {
     if (!isOpen) return null;
 
     return (
@@ -31,15 +32,21 @@ export function Modal({ isOpen, onClose, title, description, children }: ModalPr
                     </div>
                 )}
 
+                {body && <div className="px-5 py-4">{body}</div>}
+
                 <div className="flex justify-start gap-2 px-5 py-4 border-t border-border">
-                    {children}
+                    {footer}
                 </div>
             </div>
         </div>
     );
 }
 
-interface ConfirmModalProps extends Omit<ModalProps, 'children'> {
+interface ConfirmModalProps {
+    isOpen: boolean;
+    onClose: () => void;
+    title: string;
+    description?: string;
     confirmText: string;
     onConfirm: () => void;
     confirmColor?: "red" | "blue" | "primary";
@@ -57,15 +64,17 @@ export function ConfirmModal({
     cancelText = "Cancel"
 }: ConfirmModalProps) {
     return (
-        <Modal isOpen={isOpen} onClose={onClose} title={title} description={description}>
-            <Button onClick={onConfirm} color={confirmColor} className="px-4">
-                <Check className={"w-4 h-4"}/>
-                <span>{confirmText}</span>
-            </Button>
-            <Button onClick={onClose} color="red" className="px-4">
-                <X className={"w-4 h-4"}/>
-                <span>{cancelText}</span>
-            </Button>
-        </Modal>
+        <Modal isOpen={isOpen} onClose={onClose} title={title} description={description} footer={
+            <>
+                <Button onClick={onConfirm} color={confirmColor} className="px-4">
+                    <Check className={"w-4 h-4"}/>
+                    <span>{confirmText}</span>
+                </Button>
+                <Button onClick={onClose} color="red" className="px-4">
+                    <X className={"w-4 h-4"}/>
+                    <span>{cancelText}</span>
+                </Button>
+            </>
+        } />
     );
 }
