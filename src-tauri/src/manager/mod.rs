@@ -4,3 +4,4 @@ pub mod backups;
 pub mod cron;
 pub mod whitelist;
 pub mod ban;
+pub mod operators;

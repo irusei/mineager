@@ -3,7 +3,7 @@ use std::sync::{LazyLock, Mutex};
 use serde::{Deserialize, Serialize};
 use tauri::{Emitter, Manager, WindowEvent};
 
-use crate::{java::detector::get_jre_version, manager::{ban::{BanEntry, IpBanEntry}, cron, process, servers::{Server, get_cloned_servers}, whitelist::WhitelistEntry}, minecraft::versions::{get_paper_versions, get_vanilla_versions}, utils::path::sanitize_name};
+use crate::{java::detector::get_jre_version, manager::{ban::{BanEntry, IpBanEntry}, cron, operators::OperatorEntry, process, servers::{Server, get_cloned_servers}, whitelist::WhitelistEntry}, minecraft::versions::{get_paper_versions, get_vanilla_versions}, utils::path::sanitize_name};
 
 mod minecraft;
 mod manager;
@@ -320,6 +320,36 @@ fn unban_ip(server_id: &str, entry: IpBanEntry) -> Result<(), String> {
     }
 }
 
+#[tauri::command(async)]
+async fn add_operator(server_id: &str, username: &str) -> Result<(), String> {
+    let servers = get_cloned_servers();
+    if let Some(server) = servers.iter().find(|s| s.server_id == server_id) {
+        server.add_operator(username).await.map_err(|e| e.to_string())
+    } else {
+        Ok(())
+    }
+}
+
+#[tauri::command]
+fn remove_operator(server_id: &str, entry: OperatorEntry) -> Result<(), String> {
+    let servers = get_cloned_servers();
+    if let Some(server) = servers.iter().find(|s| s.server_id == server_id) {
+        server.remove_operator(&entry).map_err(|e| e.to_string())
+    } else {
+        Ok(())
+    }
+}
+
+#[tauri::command]
+fn list_operator_entries(server_id: &str) -> Result<Vec<OperatorEntry>, String> {
+    let servers = get_cloned_servers();
+    if let Some(server) = servers.iter().find(|s| s.server_id == server_id) {
+        server.read_operators().map_err(|e| e.to_string())
+    } else {
+        Ok(vec![])
+    }
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     // run cron jobs
@@ -340,7 +370,8 @@ pub fn run() {
             start_server, get_stdout, set_eula_accepted, write_stdin, read_properties_lines, write_properties, remove_server,
             get_backups, create_backup, delete_backup, restore_backup, update_auto_backup, open_server_folder, open_backup_folder,
             add_whitelist_entry, remove_whitelist_entry, list_whitelist_entries, set_whitelist_enabled, is_whitelist_enabled,
-            ban_player, ban_ip, read_banned_players, read_banned_ips, unban_player, unban_ip ])
+            ban_player, ban_ip, read_banned_players, read_banned_ips, unban_player, unban_ip,
+            add_operator, remove_operator, list_operator_entries ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
 }
