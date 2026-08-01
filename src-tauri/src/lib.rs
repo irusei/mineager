@@ -78,7 +78,7 @@ async fn fetch_versions(server_type: String) -> Vec<String> {
 }
 
 #[tauri::command(async)]
-async fn create_server(server_name: String, server_type: String, version: String) {
+async fn create_server(server_name: String, server_type: String, version: String) -> Result<(), String> {
     // create server
     let server_id: String = uuid::Uuid::new_v4().to_string();
 
@@ -106,21 +106,20 @@ async fn create_server(server_name: String, server_type: String, version: String
     };
 
     // add server
-    server.add();
+    server.add().map_err(|e| e.to_string())?;
 
     // install server
     try_emit("update-create-button-text", "Installing server...");
-    match server.install().await {
-        Ok(_) => {
-            let _ = update_frontend();
-        }
-        Err(ref err) => try_emit::<String>("alert", format!("{}", err)),
-    }
+    server.install().await.map_err(|e| e.to_string())?;
+    update_frontend().map_err(|e| e.to_string())?;
+
+    Ok(())
 }
 
 #[tauri::command(async)]
-async fn update_server(server: Server) {
-    server.update().await;
+async fn update_server(server: Server) -> Result<(), String> {
+    server.update().await.map_err(|e| e.to_string())?;
+    Ok(())
 }
 
 #[tauri::command(async)]
@@ -161,8 +160,9 @@ fn set_eula_accepted(server_id: &str, accepted: bool) {
 }
 
 #[tauri::command(async)]
-fn write_stdin(server_id: &str, string: &str) {
-    process::write_stdin(server_id, string);
+fn write_stdin(server_id: &str, string: &str) -> Result<(), String> {
+    process::write_stdin(server_id, string).map_err(|e| e.to_string())?;
+    Ok(())
 }
 
 #[tauri::command(async)]
@@ -179,29 +179,27 @@ fn read_properties_lines(server_id: &str) -> Result<Vec<String>, String> {
 }
 
 #[tauri::command(async)]
-fn write_properties(server_id: &str, new_properties: &str) {
-    let servers = get_cloned_servers();
+fn write_properties(server_id: &str, new_properties: &str) -> Result<(), String> {
+    let servers = get_cloned_servers().map_err(|e| e.to_string())?;
 
-    if let Ok(servers) = servers {
-        let server = servers
-            .into_iter()
-            .find(|s| s.server_id == server_id)
-            .expect("server not found");
-        server.write_properties(new_properties);
-    }
+    let server = servers
+        .into_iter()
+        .find(|s| s.server_id == server_id)
+        .ok_or("server not found")?;
+    server.write_properties(new_properties).map_err(|e| e.to_string())?;
+    Ok(())
 }
 
 #[tauri::command(async)]
-fn remove_server(server_id: &str) {
-    let servers = get_cloned_servers();
+fn remove_server(server_id: &str) -> Result<(), String> {
+    let servers = get_cloned_servers().map_err(|e| e.to_string())?;
 
-    if let Ok(servers) = servers {
-        let server = servers
-            .into_iter()
-            .find(|s| s.server_id == server_id)
-            .expect("server not found");
-        server.remove();
-    }
+    let server = servers
+        .into_iter()
+        .find(|s| s.server_id == server_id)
+        .ok_or("server not found")?;
+    server.remove().map_err(|e| e.to_string())?;
+    Ok(())
 }
 
 #[tauri::command]
@@ -268,11 +266,11 @@ async fn update_auto_backup(
 ) -> Result<(), String> {
     let servers = get_cloned_servers().map_err(|e| e.to_string())?;
     if let Some(server) = servers.iter().find(|s| s.server_id == server_id) {
-        server.set_auto_backup(enabled, interval.clone(), on_start);
+        server.set_auto_backup(enabled, interval.clone(), on_start).map_err(|e| e.to_string())?;
         if enabled {
-            server.add_backup_job(&interval).await;
+            server.add_backup_job(&interval).await.map_err(|e| e.to_string())?;
         } else {
-            server.remove_backup_job().await;
+            server.remove_backup_job().await.map_err(|e| e.to_string())?;
         }
     }
     Ok(())

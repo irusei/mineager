@@ -37,7 +37,7 @@ impl Server {
 
         // run /op if server is already running
         if process::get_status(&self.server_id)? == ServerStatus::Online {
-            process::write_stdin(&self.server_id, &format!("/op {}", username));
+            process::write_stdin(&self.server_id, &format!("/op {}", username))?;
             return Ok(());
         }
 
@@ -92,7 +92,7 @@ impl Server {
 
         // run /deop if server is already running
         if process::get_status(&self.server_id)? == ServerStatus::Online {
-            process::write_stdin(&self.server_id, &format!("/deop {}", entry.name));
+            process::write_stdin(&self.server_id, &format!("/deop {}", entry.name))?;
             return Ok(());
         }
 

@@ -37,7 +37,7 @@ impl Server {
 
         // run /whitelist add if server is already running
         if process::get_status(&self.server_id)? == ServerStatus::Online {
-            process::write_stdin(&self.server_id, &format!("/whitelist add {}", username));
+            process::write_stdin(&self.server_id, &format!("/whitelist add {}", username))?;
             return Ok(());
         }
 
@@ -96,7 +96,7 @@ impl Server {
             process::write_stdin(
                 &self.server_id,
                 &format!("/whitelist remove {}", entry.name),
-            );
+            )?;
             return Ok(());
         }
 
@@ -124,9 +124,9 @@ impl Server {
         // run command if server is online
         if process::get_status(&self.server_id)? == ServerStatus::Online {
             if enabled {
-                process::write_stdin(&self.server_id, "/whitelist on");
+                process::write_stdin(&self.server_id, "/whitelist on")?;
             } else {
-                process::write_stdin(&self.server_id, "/whitelist off");
+                process::write_stdin(&self.server_id, "/whitelist off")?;
             }
         }
 
@@ -148,7 +148,7 @@ impl Server {
             updated.push(format!("white-list={}", enabled));
         }
 
-        self.write_properties(&updated.join("\n"));
+        self.write_properties(&updated.join("\n"))?;
 
         Ok(())
     }

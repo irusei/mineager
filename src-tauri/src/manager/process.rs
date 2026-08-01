@@ -98,7 +98,7 @@ pub fn start_server(server_id: &str) -> Result<(), Box<dyn std::error::Error>> {
             locked_processes.insert(server_id.to_string(), server_process);
         }
 
-        update_frontend();
+        update_frontend()?;
 
         // reader thread
         // handle server stdout and put into a vec in ServerProcess
@@ -162,7 +162,7 @@ pub fn start_server(server_id: &str) -> Result<(), Box<dyn std::error::Error>> {
                     .remove(&server_id_clone);
             }
 
-            update_frontend();
+            let _ = update_frontend();
         });
 
         return Ok(());
@@ -226,7 +226,7 @@ pub fn stop_all_servers() -> Result<(), Box<dyn std::error::Error>> {
     };
 
     for server_id in server_ids {
-        write_stdin(&server_id, "stop");
+        write_stdin(&server_id, "stop")?;
     }
 
     Ok(())

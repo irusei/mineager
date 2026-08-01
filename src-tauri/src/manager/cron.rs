@@ -44,7 +44,7 @@ impl Server {
     pub async fn add_backup_job(&self, interval: &str) -> Result<(), Box<dyn std::error::Error>> {
         let normalized = normalize_cron(interval);
 
-        self.remove_backup_job().await;
+        self.remove_backup_job().await?;
 
         let scheduler: Arc<JobScheduler> = get_or_create_scheduler().await?;
 
@@ -90,7 +90,7 @@ impl Server {
             println!("Removing backup job for server id {server_id}");
             JOB_IDS.lock()?.remove(&server_id);
             let scheduler = get_or_create_scheduler().await?;
-            let _ = scheduler.remove(&uuid).await?;
+            scheduler.remove(&uuid).await?;
         }
 
         Ok(())
@@ -101,7 +101,7 @@ pub async fn init_backup_jobs() -> Result<(), Box<dyn std::error::Error>> {
     let servers = servers::get_cloned_servers()?;
     for server in &servers {
         if server.auto_backups {
-            server.add_backup_job(&server.auto_backup_interval).await;
+            server.add_backup_job(&server.auto_backup_interval).await?;
         }
     }
 

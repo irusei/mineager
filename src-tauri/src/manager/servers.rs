@@ -43,8 +43,8 @@ impl Server {
             let mut servers = SERVERS.lock()?;
             servers.push(self.clone());
         }
-        save_servers();
-        update_frontend();
+        save_servers()?;
+        update_frontend()?;
 
         Ok(())
     }
@@ -57,10 +57,10 @@ impl Server {
                 servers.remove(index);
             }
 
-            self.clean_server_directory();
+            self.clean_server_directory()?;
         }
-        save_servers();
-        update_frontend();
+        save_servers()?;
+        update_frontend()?;
 
         Ok(())
     }
@@ -94,8 +94,8 @@ impl Server {
             servers[index] = updated
         }
 
-        save_servers();
-        update_frontend();
+        save_servers()?;
+        update_frontend()?;
 
         Ok(())
     }
@@ -168,8 +168,8 @@ impl Server {
             }
         }
 
-        save_servers();
-        update_frontend();
+        save_servers()?;
+        update_frontend()?;
 
         Ok(())
     }
@@ -303,8 +303,8 @@ impl Server {
                 servers[index] = server;
             }
         }
-        save_servers();
-        update_frontend();
+        save_servers()?;
+        update_frontend()?;
 
         Ok(())
     }

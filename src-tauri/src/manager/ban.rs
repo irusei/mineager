@@ -72,9 +72,9 @@ impl Server {
         // run /ban if server is already running
         if process::get_status(&self.server_id)? == ServerStatus::Online {
             if reason == "" {
-                process::write_stdin(&self.server_id, &format!("/ban {}", username));
+                process::write_stdin(&self.server_id, &format!("/ban {}", username))?;
             } else {
-                process::write_stdin(&self.server_id, &format!("/ban {} {}", username, reason));
+                process::write_stdin(&self.server_id, &format!("/ban {} {}", username, reason))?;
             }
             return Ok(());
         }
@@ -134,9 +134,9 @@ impl Server {
         // run /ban-ip if server is already running
         if process::get_status(&self.server_id)? == ServerStatus::Online {
             if reason == "" {
-                process::write_stdin(&self.server_id, &format!("/ban-ip {}", ip));
+                process::write_stdin(&self.server_id, &format!("/ban-ip {}", ip))?;
             } else {
-                process::write_stdin(&self.server_id, &format!("/ban-ip {} {}", ip, reason));
+                process::write_stdin(&self.server_id, &format!("/ban-ip {} {}", ip, reason))?;
             }
             return Ok(());
         }
@@ -182,8 +182,8 @@ impl Server {
 
         // run /pardon if server is already running
         if process::get_status(&self.server_id)? == ServerStatus::Online {
-            process::write_stdin(&self.server_id, &format!("/pardon {}", entry.uuid)); // this apparently works?
-            process::write_stdin(&self.server_id, &format!("/pardon {}", entry.name));
+            process::write_stdin(&self.server_id, &format!("/pardon {}", entry.uuid))?; // this apparently works?
+            process::write_stdin(&self.server_id, &format!("/pardon {}", entry.name))?;
             return Ok(());
         }
 
@@ -213,7 +213,7 @@ impl Server {
 
         // run /pardon-ip if server is already running
         if process::get_status(&self.server_id)? == ServerStatus::Online {
-            process::write_stdin(&self.server_id, &format!("/pardon-ip {}", entry.ip));
+            process::write_stdin(&self.server_id, &format!("/pardon-ip {}", entry.ip))?;
             return Ok(());
         }
 

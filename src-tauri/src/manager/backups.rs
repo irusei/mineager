@@ -72,7 +72,7 @@ impl Server {
         backup_path.push(backup_name);
 
         if fs::exists(&backup_path)? {
-            self.clean_server_directory();
+            self.clean_server_directory()?;
             fs::create_dir_all(&server_path)?;
 
             let zip_file = File::open(&backup_path)?;
@@ -93,7 +93,7 @@ impl Server {
                 &backup_metadata.server_type,
                 &backup_metadata.server_version,
             )
-            .await;
+            .await?;
 
             fs::remove_file(&metadata_file)?;
 
