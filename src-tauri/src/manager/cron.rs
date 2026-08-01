@@ -3,15 +3,16 @@ use std::sync::{Arc, LazyLock, Mutex};
 use tokio_cron_scheduler::{Job, JobScheduler};
 use uuid::Uuid;
 
-use crate::manager::{process::{ServerStatus, get_status}, servers::{self, Server}};
+use crate::manager::{
+    process::{get_status, ServerStatus},
+    servers::{self, Server},
+};
 
-static BACKUP_JOB_SCHEDULER: LazyLock<Mutex<Option<Arc<JobScheduler>>>> = LazyLock::new(|| {
-    Mutex::new(None)
-});
+static BACKUP_JOB_SCHEDULER: LazyLock<Mutex<Option<Arc<JobScheduler>>>> =
+    LazyLock::new(|| Mutex::new(None));
 
-static JOB_IDS: LazyLock<Mutex<std::collections::HashMap<String, Uuid>>> = LazyLock::new(|| {
-    Mutex::new(std::collections::HashMap::new())
-});
+static JOB_IDS: LazyLock<Mutex<std::collections::HashMap<String, Uuid>>> =
+    LazyLock::new(|| Mutex::new(std::collections::HashMap::new()));
 
 async fn get_or_create_scheduler() -> Result<Arc<JobScheduler>, Box<dyn std::error::Error>> {
     {
@@ -25,7 +26,10 @@ async fn get_or_create_scheduler() -> Result<Arc<JobScheduler>, Box<dyn std::err
     if let Err(e) = scheduler.start().await {
         eprintln!("Failed to start scheduler: {}", e);
     }
-    BACKUP_JOB_SCHEDULER.lock().unwrap().replace(scheduler.clone());
+    BACKUP_JOB_SCHEDULER
+        .lock()
+        .unwrap()
+        .replace(scheduler.clone());
     Ok(scheduler)
 }
 
@@ -41,26 +45,26 @@ fn normalize_cron(interval: &str) -> String {
 impl Server {
     pub async fn add_backup_job(&self, interval: &str) {
         let normalized = normalize_cron(interval);
-        
+
         self.remove_backup_job().await;
 
         let scheduler: Arc<JobScheduler> = get_or_create_scheduler().await.unwrap();
 
         let server_id_clone = self.server_id.clone();
         let job = match Job::new(&normalized, move |_uuid, _l| {
-                let servers = servers::get_cloned_servers();
-                if let Some(server) = servers.iter().find(|s| s.server_id == server_id_clone) {
-                    if get_status(&server_id_clone) == ServerStatus::Online {
-                        server.create_backup().expect("Failed to create backup");
-                    }
+            let servers = servers::get_cloned_servers();
+            if let Some(server) = servers.iter().find(|s| s.server_id == server_id_clone) {
+                if get_status(&server_id_clone) == ServerStatus::Online {
+                    server.create_backup().expect("Failed to create backup");
                 }
-            }) {
-                Ok(j) => j,
-                Err(e) => {
-                    eprintln!("Failed to parse cron schedule '{}': {}", normalized, e);
-                    return;
-                }
-            };
+            }
+        }) {
+            Ok(j) => j,
+            Err(e) => {
+                eprintln!("Failed to parse cron schedule '{}': {}", normalized, e);
+                return;
+            }
+        };
 
         let job_uuid = scheduler.add(job).await.unwrap();
 
@@ -71,7 +75,13 @@ impl Server {
 
     pub async fn remove_backup_job(&self) {
         let uuid = {
-            JOB_IDS.lock().unwrap().iter().filter(|j| j.0 == &self.server_id).map(|j| j.1.clone()).collect::<Vec<Uuid>>()
+            JOB_IDS
+                .lock()
+                .unwrap()
+                .iter()
+                .filter(|j| j.0 == &self.server_id)
+                .map(|j| j.1.clone())
+                .collect::<Vec<Uuid>>()
         };
 
         if uuid.len() > 0 {

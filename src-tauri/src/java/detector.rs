@@ -27,11 +27,11 @@ pub fn get_jre_version(minecraft_version: &str) -> JreVersion {
     } else {
         JreVersion::Java25
     }
-}       
+}
 
 #[cfg(test)]
 mod tests {
-    use crate::java::detector::{JreVersion, get_jre_version};
+    use crate::java::detector::{get_jre_version, JreVersion};
 
     #[test]
     fn test_javadetector_jre8_1() {

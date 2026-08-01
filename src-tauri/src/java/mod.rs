@@ -1,3 +1,3 @@
-pub mod sources;
-pub mod jre;
 pub mod detector;
+pub mod jre;
+pub mod sources;

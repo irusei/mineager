@@ -5,7 +5,7 @@ use std::{
     time::{SystemTime, UNIX_EPOCH},
 };
 
-use zip::{CompressionMethod, ZipArchive, ZipWriter, write::FileOptions};
+use zip::{write::FileOptions, CompressionMethod, ZipArchive, ZipWriter};
 
 use serde::{Deserialize, Serialize};
 
@@ -59,7 +59,10 @@ impl Server {
         Ok(())
     }
 
-    pub async fn restore_backup(&self, backup_name: &str) -> Result<(), Box<dyn std::error::Error>> {
+    pub async fn restore_backup(
+        &self,
+        backup_name: &str,
+    ) -> Result<(), Box<dyn std::error::Error>> {
         if crate::manager::process::get_status(&self.server_id) != ServerStatus::Offline {
             return Err(format!("Server is running").into());
         }
@@ -87,7 +90,11 @@ impl Server {
             let backup_metadata_file = File::open(&metadata_file)?;
             let backup_metadata: BackupMetadata = serde_json::from_reader(backup_metadata_file)?;
 
-            self.change_server_details(&backup_metadata.server_type, &backup_metadata.server_version).await;
+            self.change_server_details(
+                &backup_metadata.server_type,
+                &backup_metadata.server_version,
+            )
+            .await;
 
             fs::remove_file(&metadata_file)?;
 
@@ -100,7 +107,14 @@ impl Server {
         let server_path = self.get_server_path();
 
         let mut backup_path = self.ensure_backup_path();
-        backup_path.push(SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_millis().to_string() + ".zip");
+        backup_path.push(
+            SystemTime::now()
+                .duration_since(UNIX_EPOCH)
+                .unwrap()
+                .as_millis()
+                .to_string()
+                + ".zip",
+        );
 
         let new_zip_file = File::create(&backup_path)?;
         let mut zip = ZipWriter::new(new_zip_file);
@@ -123,7 +137,9 @@ impl Server {
                     if name_str == "server.jar" {
                         continue;
                     }
-                    if path.strip_prefix(root).map_or(false, |p| p.starts_with("libraries") || p.starts_with("versions")) {
+                    if path.strip_prefix(root).map_or(false, |p| {
+                        p.starts_with("libraries") || p.starts_with("versions")
+                    }) {
                         continue;
                     }
                 }
@@ -141,7 +157,7 @@ impl Server {
                                 zip.write_all(&buffer)?;
                             }
                         }
-                        Err(e) => { 
+                        Err(e) => {
                             eprintln!("Skipping locked/unreadable file {}: {}", path.display(), e);
                         }
                     }

@@ -1,13 +1,13 @@
+use serde::{Deserialize, Serialize};
 use std::fs;
 use std::fs::{File, OpenOptions};
 use std::io::{BufRead, BufReader, ErrorKind, Write};
 use std::sync::{LazyLock, Mutex};
-use serde::{Deserialize, Serialize};
 
 use crate::java::detector::get_jre_version;
 use crate::minecraft::jars;
-use crate::{try_emit, update_frontend};
 use crate::utils::path::{get_core_path, sanitize_name};
+use crate::{try_emit, update_frontend};
 
 const SERVER_STORAGE_FILE: &str = "servers.json";
 static SERVERS: LazyLock<Mutex<Vec<Server>>> = LazyLock::new(|| Mutex::new(read_servers()));
@@ -50,7 +50,7 @@ impl Server {
     pub fn remove(&self) {
         {
             let mut servers = SERVERS.lock().unwrap();
-            
+
             if let Some(index) = servers.iter().position(|s| s.server_id == self.server_id) {
                 servers.remove(index);
             }
@@ -63,7 +63,11 @@ impl Server {
 
     pub async fn change_server_details(&self, new_server_type: &str, new_server_version: &str) {
         let jre_version = &get_jre_version(new_server_version);
-        let java_path: String = jre_version.download().await.map(|result| result.to_string_lossy().into_owned()).unwrap_or(String::from(""));
+        let java_path: String = jre_version
+            .download()
+            .await
+            .map(|result| result.to_string_lossy().into_owned())
+            .unwrap_or(String::from(""));
 
         let updated = Server {
             server_id: self.server_id.clone(),
@@ -76,7 +80,7 @@ impl Server {
             backups: self.backups.clone(),
             auto_backups: self.auto_backups,
             auto_backup_on_start: self.auto_backup_on_start,
-            auto_backup_interval: self.auto_backup_interval.clone()
+            auto_backup_interval: self.auto_backup_interval.clone(),
         };
 
         match updated.install().await {
@@ -85,7 +89,7 @@ impl Server {
                 if let Some(index) = servers.iter().position(|s| s.server_id == self.server_id) {
                     servers[index] = updated
                 }
-            },
+            }
             Err(ref err) => try_emit::<String>("alert", format!("{}", err)),
         }
 
@@ -109,7 +113,11 @@ impl Server {
 
         if needs_reinstall {
             let jre_version = &get_jre_version(&self.server_version);
-            let java_path: String = jre_version.download().await.map(|result| result.to_string_lossy().into_owned()).unwrap_or(String::from(""));
+            let java_path: String = jre_version
+                .download()
+                .await
+                .map(|result| result.to_string_lossy().into_owned())
+                .unwrap_or(String::from(""));
 
             let updated = Server {
                 server_id: self.server_id.clone(),
@@ -122,17 +130,19 @@ impl Server {
                 backups: self.backups.clone(),
                 auto_backups: self.auto_backups,
                 auto_backup_on_start: self.auto_backup_on_start,
-                auto_backup_interval: self.auto_backup_interval.clone()
+                auto_backup_interval: self.auto_backup_interval.clone(),
             };
 
             {
                 match updated.install().await {
                     Ok(_) => {
                         let mut servers = SERVERS.lock().unwrap();
-                        if let Some(index) = servers.iter().position(|s| s.server_id == self.server_id) {
+                        if let Some(index) =
+                            servers.iter().position(|s| s.server_id == self.server_id)
+                        {
                             servers[index] = updated
                         }
-                    },
+                    }
                     Err(ref err) => try_emit::<String>("alert", format!("{}", err)),
                 }
             }
@@ -150,7 +160,7 @@ impl Server {
                     backups: self.backups.clone(),
                     auto_backups: self.auto_backups,
                     auto_backup_on_start: self.auto_backup_on_start,
-                    auto_backup_interval: self.auto_backup_interval.clone()
+                    auto_backup_interval: self.auto_backup_interval.clone(),
                 };
             }
         }
@@ -198,7 +208,9 @@ impl Server {
             .open(eula_path)
             .expect("Failed to open eula.txt");
 
-        eula_file.write_all(format!("eula={}", accepted).as_bytes()).expect("Cannot write to eula.txt");
+        eula_file
+            .write_all(format!("eula={}", accepted).as_bytes())
+            .expect("Cannot write to eula.txt");
     }
 
     pub fn read_properties_lines(&self) -> Result<Vec<String>, Box<dyn std::error::Error>> {
@@ -210,10 +222,10 @@ impl Server {
 
         let server_properties_file = OpenOptions::new()
             .create(false)
-            .read(true) 
+            .read(true)
             .open(server_properties_path)
             .unwrap();
-        
+
         let mut lines: Vec<String> = Vec::new();
         let mut reader = BufReader::new(server_properties_file);
 
@@ -224,10 +236,10 @@ impl Server {
                 Ok(_) => {
                     let line = String::from_utf8(buf).unwrap();
                     lines.push(line.trim_end().to_string());
-                },
+                }
                 Err(ref e) => {
-                    if e.kind() == ErrorKind::WouldBlock  { 
-                        break 
+                    if e.kind() == ErrorKind::WouldBlock {
+                        break;
                     }
                     return Err("failed to read server.properties".into());
                 }
@@ -244,11 +256,13 @@ impl Server {
         let mut server_properties_file = OpenOptions::new()
             .create(true)
             .write(true)
-            .truncate(true) 
+            .truncate(true)
             .open(server_properties_path)
             .unwrap();
 
-        server_properties_file.write_all(properties.as_bytes()).expect("failed to write to server.properties");
+        server_properties_file
+            .write_all(properties.as_bytes())
+            .expect("failed to write to server.properties");
     }
 
     pub fn get_server_path(&self) -> std::path::PathBuf {
@@ -267,7 +281,7 @@ impl Server {
             fs::remove_dir_all(path).unwrap();
         }
     }
- 
+
     pub fn set_auto_backup(&self, enabled: bool, interval: String, on_start: bool) {
         {
             let mut servers = SERVERS.lock().unwrap();
@@ -303,7 +317,9 @@ pub fn ensure_file() {
         let mut storage_file = File::create(path).expect("Failed to create servers.json");
 
         let json = serde_json::to_string_pretty(&json_data).expect("Failed to serialize json");
-        storage_file.write_all(json.as_bytes()).expect("Failed to write json");
+        storage_file
+            .write_all(json.as_bytes())
+            .expect("Failed to write json");
     }
 }
 
@@ -320,7 +336,9 @@ pub fn save_servers() {
         .expect("Failed to open servers.json");
 
     let json = serde_json::to_string_pretty(&servers).expect("Failed to serialize json");
-    storage_file.write_all(json.as_bytes()).expect("Failed to write json");
+    storage_file
+        .write_all(json.as_bytes())
+        .expect("Failed to write json");
 }
 
 pub fn read_servers() -> Vec<Server> {

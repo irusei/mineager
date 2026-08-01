@@ -5,13 +5,13 @@ use crate::minecraft::versions::get_vanilla_manifest_from_version;
 
 #[derive(Debug, Deserialize)]
 struct PaperJar {
-    downloads: PaperJarDownloads
+    downloads: PaperJarDownloads,
 }
 
 #[derive(Debug, Deserialize)]
 struct PaperJarDownloads {
     #[serde(rename = "server:default")]
-    server_default: PaperServerDefaultJar
+    server_default: PaperServerDefaultJar,
 }
 
 #[derive(Debug, Deserialize)]
@@ -28,28 +28,30 @@ struct PaperJarChecksums {
 // mojang
 #[derive(Debug, Deserialize)]
 struct MojangJar {
-    downloads: MojangJarDownloads
+    downloads: MojangJarDownloads,
 }
 
 #[derive(Debug, Deserialize)]
 struct MojangJarDownloads {
-    server: MojangServerJarDownloads
+    server: MojangServerJarDownloads,
 }
 
 #[derive(Debug, Deserialize)]
 struct MojangServerJarDownloads {
     sha1: String,
-    url: String
+    url: String,
 }
 
 pub async fn get_paper_jar(version: &str) -> Result<bytes::Bytes, Box<dyn std::error::Error>> {
-    let jars = reqwest::get("https://fill.papermc.io/v3/projects/paper/versions/".to_owned() + version + "/builds")
-        .await?
-        .json::<Vec<PaperJar>>()
-        .await?;
+    let jars = reqwest::get(
+        "https://fill.papermc.io/v3/projects/paper/versions/".to_owned() + version + "/builds",
+    )
+    .await?
+    .json::<Vec<PaperJar>>()
+    .await?;
 
     if jars.len() == 0 {
-        return Err(format!("No server jars available for this version. ").into())
+        return Err(format!("No server jars available for this version. ").into());
     }
 
     let latest_jar = &jars.first().unwrap().downloads.server_default;
@@ -64,9 +66,12 @@ pub async fn get_paper_jar(version: &str) -> Result<bytes::Bytes, Box<dyn std::e
     Digest::update(&mut hasher, &jar_bytes);
 
     let sha256_checksum = hex::encode(hasher.finalize());
-    
+
     if !sha256_checksum.eq(jar_sha256_checksum) {
-        return Err(format!("The provided checksum for the jar file doesn't match with what was downloaded.").into())
+        return Err(format!(
+            "The provided checksum for the jar file doesn't match with what was downloaded."
+        )
+        .into());
     }
 
     Ok(jar_bytes)
@@ -84,7 +89,10 @@ pub async fn get_mojang_jar(version: &str) -> Result<bytes::Bytes, Box<dyn std::
         let server_jar_downloads = jars.downloads.server;
 
         // download jar
-        let server_jar_bytes = reqwest::get(server_jar_downloads.url).await?.bytes().await?;
+        let server_jar_bytes = reqwest::get(server_jar_downloads.url)
+            .await?
+            .bytes()
+            .await?;
 
         // check checksum
         let mut hasher = sha1::Sha1::new();
@@ -93,7 +101,10 @@ pub async fn get_mojang_jar(version: &str) -> Result<bytes::Bytes, Box<dyn std::
         let sha1_checksum = hex::encode(hasher.finalize());
 
         if !sha1_checksum.eq(&server_jar_downloads.sha1) {
-            return Err(format!("The provided checksum for the jar file doesn't match with what was downloaded.").into())
+            return Err(format!(
+                "The provided checksum for the jar file doesn't match with what was downloaded."
+            )
+            .into());
         }
 
         Ok(server_jar_bytes)
