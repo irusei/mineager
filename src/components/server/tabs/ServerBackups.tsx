@@ -134,8 +134,8 @@ export function ServerBackups({ server }: ServerBackupsProps) {
   }, [server.server.server_id]);
 
   return (
-    <div className="flex-1 h-full min-h-120 max-h-120 bg-bg-2 flex flex-col">
-      <div className="relative flex flex-col flex-1 overflow-hidden p-3 overflow-y-auto scrollbar-hide">
+    <div className="flex-1 min-h-120 max-h-120 bg-bg-2 flex flex-col">
+      <div className="relative min-h-120 max-h-120 p-3 overflow-y-scroll pb-10">
         <div className="flex items-center gap-2 mb-3">
           <Settings className="w-4 h-4 text-mauve" />
           <p className="text-base font-semibold text-mauve">Backup Settings</p>

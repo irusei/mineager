@@ -46,8 +46,8 @@ export function ServerSettings({ server }: ServerSettingsProps) {
 
   return (
     <>
-      <div className="flex-1 h-full bg-bg-2 flex flex-col">
-        <div className="flex-1 overflow-y-auto scrollbar-hide">
+      <div className="flex-1 bg-bg-2 flex flex-col">
+        <div className="max-h-100 overflow-y-scroll pb-10">
           <div className="p-3">
             <div className="flex items-center gap-2 mb-3">
               <Cpu className="w-4 h-4 text-mauve" />

@@ -93,8 +93,8 @@ export function ServerProperties({ server }: ServerPropertiesProps) {
 
   return (
     <>
-      <div className="flex-1 h-full bg-bg-2 flex flex-col">
-        <div className="flex-1 overflow-y-auto scrollbar-hide">
+      <div className="flex-1 bg-bg-2 flex flex-col">
+        <div className="max-h-100 overflow-y-scroll pb-10">
           <div className="bg-bg-2 p-3">
             <div className="flex items-center gap-2 mb-3">
               <Settings className="w-4 h-4 text-mauve" />
