@@ -93,12 +93,8 @@ export function ServerProperties({ server }: ServerPropertiesProps) {
 
   return (
     <>
-      <div className="flex-1 h-full bg-bg-2 flex flex-col space-y-4 pb-4">
-        <div
-          className={
-            "flex flex-col max-h-100.25 h-100.25 overflow-y-scroll scrollbar-hide"
-          }
-        >
+      <div className="flex-1 h-full bg-bg-2 flex flex-col">
+        <div className="flex-1 overflow-y-auto scrollbar-hide">
           <div className="bg-bg-2 p-3">
             <div className="flex items-center gap-2 mb-3">
               <Settings className="w-4 h-4 text-mauve" />
@@ -318,28 +314,24 @@ export function ServerProperties({ server }: ServerPropertiesProps) {
             </div>
           </div>
         </div>
-      </div>
-      <div
-        className={
-          "flex flex-row w-full space-x-4 bg-bg-2 border-t border-border p-2.5"
-        }
-      >
-        <Button
-          onClick={() => applyProperties()}
-          color={"primary"}
-          disabled={isOnline}
-        >
-          <Check className={"w-4 h-4"} />
-          <p>Apply</p>
-        </Button>
-        <Button
-          onClick={() => reloadProperties()}
-          color={"red"}
-          disabled={isOnline}
-        >
-          <X className={"w-4 h-4"} />
-          <p>Revert</p>
-        </Button>
+        <div className="sticky bottom-0 flex flex-row w-full space-x-4 bg-bg-2 border-t border-border p-2.5">
+          <Button
+            onClick={() => applyProperties()}
+            color={"primary"}
+            disabled={isOnline}
+          >
+            <Check className={"w-4 h-4"} />
+            <p>Apply</p>
+          </Button>
+          <Button
+            onClick={() => reloadProperties()}
+            color={"red"}
+            disabled={isOnline}
+          >
+            <X className={"w-4 h-4"} />
+            <p>Revert</p>
+          </Button>
+        </div>
       </div>
     </>
   );
