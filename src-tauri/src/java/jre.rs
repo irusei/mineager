@@ -49,7 +49,7 @@ impl JreVersion {
 
         match self {
             JreVersion::Java8 => Some(sources::WINDOWS_JRE8_URL),
-            JreVersion::Java16 => None,
+            JreVersion::Java16 => Some(sources::WINDOWS_JRE17_URL), // use jre17 for jre16, as it is backwards compatible
             JreVersion::Java17 => Some(sources::WINDOWS_JRE17_URL),
             JreVersion::Java21 => Some(sources::WINDOWS_JRE21_URL),
             JreVersion::Java25 => Some(sources::WINDOWS_JRE25_URL),
@@ -63,7 +63,7 @@ impl JreVersion {
 
         match self {
             JreVersion::Java8 => Some(sources::WINDOWS_JRE8_SHA256),
-            JreVersion::Java16 => None,
+            JreVersion::Java16 => Some(sources::WINDOWS_JRE17_SHA256), // use jre17 for jre16, as it is backwards compatible
             JreVersion::Java17 => Some(sources::WINDOWS_JRE17_SHA256),
             JreVersion::Java21 => Some(sources::WINDOWS_JRE21_SHA256),
             JreVersion::Java25 => Some(sources::WINDOWS_JRE25_SHA256),
@@ -80,10 +80,6 @@ impl JreVersion {
         // pre-checks
         if !cfg!(target_os = "windows") {
             return Err(format!("unable to install Java on your platform").into());
-        }
-
-        if self.eq(&JreVersion::Java16) {
-            return Err(format!("missing downloads for Java16, please configure manually").into());
         }
 
         // get links to java
