@@ -1,14 +1,11 @@
 use std::{io::Cursor, path::PathBuf};
 
 use sha2::Digest;
-use zip::ZipArchive;
 
 use crate::{
     java::{detector::JreVersion, sources},
     utils::path::get_core_path,
 };
-
-// TODO: linux support
 
 impl JreVersion {
     fn to_string(&self) -> String {
@@ -32,41 +29,68 @@ impl JreVersion {
     pub fn get_path_to_java(&self) -> Option<PathBuf> {
         let mut folder_path = self.get_jre_folder_path();
 
+        #[cfg(target_os = "windows")]
         folder_path.push("bin");
+        #[cfg(target_os = "windows")]
         folder_path.push("java.exe");
+
+        #[cfg(target_os = "linux")]
+        folder_path.push("bin");
+        #[cfg(target_os = "linux")]
+        folder_path.push("java");
 
         if !folder_path.exists() {
             return None;
         }
 
-        return Some(folder_path);
+        Some(folder_path)
     }
 
     fn match_jre_sources_download_url(&self) -> Option<&str> {
-        if !cfg!(target_os = "windows") {
-            return None;
+        #[cfg(target_os = "windows")]
+        {
+            return match self {
+                JreVersion::Java8 => Some(sources::WINDOWS_JRE8_URL),
+                JreVersion::Java16 => Some(sources::WINDOWS_JRE17_URL), // use jre17 for jre16, as it is backwards compatible
+                JreVersion::Java17 => Some(sources::WINDOWS_JRE17_URL),
+                JreVersion::Java21 => Some(sources::WINDOWS_JRE21_URL),
+                JreVersion::Java25 => Some(sources::WINDOWS_JRE25_URL),
+            };
         }
 
-        match self {
-            JreVersion::Java8 => Some(sources::WINDOWS_JRE8_URL),
-            JreVersion::Java16 => Some(sources::WINDOWS_JRE17_URL), // use jre17 for jre16, as it is backwards compatible
-            JreVersion::Java17 => Some(sources::WINDOWS_JRE17_URL),
-            JreVersion::Java21 => Some(sources::WINDOWS_JRE21_URL),
-            JreVersion::Java25 => Some(sources::WINDOWS_JRE25_URL),
+        #[cfg(target_os = "linux")]
+        {
+            return match self {
+                JreVersion::Java8 => Some(sources::LINUX_JRE8_URL),
+                JreVersion::Java16 => Some(sources::LINUX_JRE17_URL), // use jre17 for jre16, as it is backwards compatible
+                JreVersion::Java17 => Some(sources::LINUX_JRE17_URL),
+                JreVersion::Java21 => Some(sources::LINUX_JRE21_URL),
+                JreVersion::Java25 => Some(sources::LINUX_JRE25_URL),
+            };
         }
     }
 
     fn match_jre_sources_checksum(&self) -> Option<&str> {
-        if !cfg!(target_os = "windows") {
-            return None;
+        #[cfg(target_os = "windows")]
+        {
+            return match self {
+                JreVersion::Java8 => Some(sources::WINDOWS_JRE8_SHA256),
+                JreVersion::Java16 => Some(sources::WINDOWS_JRE17_SHA256), // use jre17 for jre16, as it is backwards compatible
+                JreVersion::Java17 => Some(sources::WINDOWS_JRE17_SHA256),
+                JreVersion::Java21 => Some(sources::WINDOWS_JRE21_SHA256),
+                JreVersion::Java25 => Some(sources::WINDOWS_JRE25_SHA256),
+            };
         }
 
-        match self {
-            JreVersion::Java8 => Some(sources::WINDOWS_JRE8_SHA256),
-            JreVersion::Java16 => Some(sources::WINDOWS_JRE17_SHA256), // use jre17 for jre16, as it is backwards compatible
-            JreVersion::Java17 => Some(sources::WINDOWS_JRE17_SHA256),
-            JreVersion::Java21 => Some(sources::WINDOWS_JRE21_SHA256),
-            JreVersion::Java25 => Some(sources::WINDOWS_JRE25_SHA256),
+        #[cfg(target_os = "linux")]
+        {
+            return match self {
+                JreVersion::Java8 => Some(sources::LINUX_JRE8_SHA256),
+                JreVersion::Java16 => Some(sources::LINUX_JRE17_SHA256), // use jre17 for jre16, as it is backwards compatible
+                JreVersion::Java17 => Some(sources::LINUX_JRE17_SHA256),
+                JreVersion::Java21 => Some(sources::LINUX_JRE21_SHA256),
+                JreVersion::Java25 => Some(sources::LINUX_JRE25_SHA256),
+            };
         }
     }
 
@@ -98,19 +122,57 @@ impl JreVersion {
                     .into());
                 }
 
-                // extract zip from bytes into java folder
-                let mut java_folder = self.get_jre_folder_path();
-                let cursor = Cursor::new(zip_bytes);
-                let mut archive = ZipArchive::new(cursor)?;
+                // extract archive into java folder
+                let java_folder = self.get_jre_folder_path();
 
-                // extract to folder
-                archive
-                    .extract_unwrapped_root_dir(&java_folder, zip::read::root_dir_common_filter)?;
+                #[cfg(target_os = "windows")]
+                {
+                    let cursor = Cursor::new(zip_bytes);
+                    let mut archive = ZipArchive::new(cursor)?;
+                    archive.extract_unwrapped_root_dir(
+                        &java_folder,
+                        zip::read::root_dir_common_filter,
+                    )?;
+                }
 
-                java_folder.push("bin");
-                java_folder.push("java.exe");
+                #[cfg(target_os = "linux")]
+                {
+                    std::fs::create_dir_all(&java_folder)?;
+                    let cursor = Cursor::new(zip_bytes);
+                    let decoder = flate2::read::GzDecoder::new(cursor);
+                    let mut archive = tar::Archive::new(decoder);
+                    archive.unpack(&java_folder)?;
 
-                return Ok(java_folder);
+                    // this creates an extra folder inside of the java installation, so
+                    // gotta move it
+                    let entries = std::fs::read_dir(&java_folder)?;
+                    let folder_name = entries
+                        .filter_map(Result::ok)
+                        .map(|e| e.path())
+                        .find(|p| p.is_dir());
+
+                    if let Some(folder_name) = folder_name {
+                        // iterate over all of the entries of the folder
+                        let folder_entries = std::fs::read_dir(&folder_name)?;
+                        for entry in folder_entries {
+                            let entry = entry?;
+                            let path = entry.path();
+
+                            std::fs::rename(
+                                &path,
+                                &java_folder.join(
+                                    &path
+                                        .file_name()
+                                        .ok_or("could not get filename of java archive file")?,
+                                ),
+                            )?;
+                        }
+                    }
+                }
+
+                return Ok(self
+                    .get_path_to_java()
+                    .ok_or("failed to find java binary after extraction")?);
             }
         }
 
