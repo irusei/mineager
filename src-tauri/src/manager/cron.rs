@@ -16,20 +16,18 @@ static JOB_IDS: LazyLock<Mutex<std::collections::HashMap<String, Uuid>>> =
 
 async fn get_or_create_scheduler() -> Result<Arc<JobScheduler>, Box<dyn std::error::Error>> {
     {
-        let sched_guard = BACKUP_JOB_SCHEDULER.lock().unwrap();
+        let sched_guard = BACKUP_JOB_SCHEDULER.lock()?;
         if let Some(sched) = sched_guard.as_ref() {
             return Ok(sched.clone());
         }
     }
+
     let new_scheduler = JobScheduler::new().await?;
     let scheduler = Arc::new(new_scheduler);
-    if let Err(e) = scheduler.start().await {
-        eprintln!("Failed to start scheduler: {}", e);
-    }
-    BACKUP_JOB_SCHEDULER
-        .lock()
-        .unwrap()
-        .replace(scheduler.clone());
+    scheduler.start().await?;
+
+    BACKUP_JOB_SCHEDULER.lock()?.replace(scheduler.clone());
+
     Ok(scheduler)
 }
 
@@ -43,62 +41,69 @@ fn normalize_cron(interval: &str) -> String {
 }
 
 impl Server {
-    pub async fn add_backup_job(&self, interval: &str) {
+    pub async fn add_backup_job(&self, interval: &str) -> Result<(), Box<dyn std::error::Error>> {
         let normalized = normalize_cron(interval);
 
         self.remove_backup_job().await;
 
-        let scheduler: Arc<JobScheduler> = get_or_create_scheduler().await.unwrap();
+        let scheduler: Arc<JobScheduler> = get_or_create_scheduler().await?;
 
         let server_id_clone = self.server_id.clone();
         let job = match Job::new(&normalized, move |_uuid, _l| {
             let servers = servers::get_cloned_servers();
-            if let Some(server) = servers.iter().find(|s| s.server_id == server_id_clone) {
-                if get_status(&server_id_clone) == ServerStatus::Online {
-                    server.create_backup().expect("Failed to create backup");
+            if let Ok(servers) = servers {
+                if let Some(server) = servers.iter().find(|s| s.server_id == server_id_clone) {
+                    let status = get_status(&server_id_clone);
+                    if let Ok(status) = status {
+                        if status == ServerStatus::Online {
+                            server.create_backup().expect("Failed to create backup");
+                        }
+                    }
                 }
             }
         }) {
             Ok(j) => j,
             Err(e) => {
-                eprintln!("Failed to parse cron schedule '{}': {}", normalized, e);
-                return;
+                return Err(
+                    format!("Failed to parse cron schedule '{}': {}", normalized, e).into(),
+                );
             }
         };
 
-        let job_uuid = scheduler.add(job).await.unwrap();
+        let job_uuid = scheduler.add(job).await?;
 
         let server_id = self.server_id.clone();
         println!("Added backup job of interval {normalized} for server id {server_id}");
-        JOB_IDS.lock().unwrap().insert(server_id, job_uuid);
+        JOB_IDS.lock()?.insert(server_id, job_uuid);
+
+        Ok(())
     }
 
-    pub async fn remove_backup_job(&self) {
-        let uuid = {
-            JOB_IDS
-                .lock()
-                .unwrap()
-                .iter()
-                .filter(|j| j.0 == &self.server_id)
-                .map(|j| j.1.clone())
-                .collect::<Vec<Uuid>>()
-        };
+    pub async fn remove_backup_job(&self) -> Result<(), Box<dyn std::error::Error>> {
+        let uuid = JOB_IDS
+            .lock()?
+            .iter()
+            .find_map(|(id, uuid)| (id == &self.server_id).then_some(*uuid));
 
-        if uuid.len() > 0 {
+        if let Some(uuid) = uuid {
             let server_id = self.server_id.clone();
             println!("Removing backup job for server id {server_id}");
-            JOB_IDS.lock().unwrap().remove(&server_id);
-            let scheduler = get_or_create_scheduler().await.unwrap();
-            let _ = scheduler.remove(uuid.first().unwrap()).await;
+            JOB_IDS.lock()?.remove(&server_id);
+            let scheduler = get_or_create_scheduler().await?;
+            let _ = scheduler.remove(&uuid).await?;
         }
+
+        Ok(())
     }
 }
 
-pub async fn init_backup_jobs() {
-    let servers = servers::get_cloned_servers();
+pub async fn init_backup_jobs() -> Result<(), Box<dyn std::error::Error>> {
+    let servers = servers::get_cloned_servers()?;
     for server in &servers {
         if server.auto_backups {
             server.add_backup_job(&server.auto_backup_interval).await;
         }
     }
+
+    Ok(())
 }

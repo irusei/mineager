@@ -16,13 +16,13 @@ pub fn get_jre_version(minecraft_version: &str) -> JreVersion {
     //           1.20.5 <= version <= 1.21.11 - java 21
     //           26.1 <= version               - java 25
 
-    if compare_versions("1.16.5", minecraft_version) >= 0 {
+    if compare_versions("1.16.5", minecraft_version).unwrap_or(-1) >= 0 {
         JreVersion::Java8
-    } else if compare_versions("1.17.1", minecraft_version) >= 0 {
+    } else if compare_versions("1.17.1", minecraft_version).unwrap_or(-1) >= 0 {
         JreVersion::Java16
-    } else if compare_versions("1.20.4", minecraft_version) >= 0 {
+    } else if compare_versions("1.20.4", minecraft_version).unwrap_or(-1) >= 0 {
         JreVersion::Java17
-    } else if compare_versions("1.21.11", minecraft_version) >= 0 {
+    } else if compare_versions("1.21.11", minecraft_version).unwrap_or(-1) >= 0 {
         JreVersion::Java21
     } else {
         JreVersion::Java25

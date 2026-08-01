@@ -31,37 +31,48 @@ struct FrontendServer {
 }
 
 fn try_emit<T: Serialize + Clone>(event: &str, payload: T) {
-    if let Some(handle) = MAIN_HANDLE.lock().unwrap().as_ref() {
-        if let Some(window) = handle.app_handle().get_webview_window("main") {
-            window.emit(event, payload).unwrap();
+    if let Ok(handle) = MAIN_HANDLE.lock() {
+        if let Some(handle) = handle.as_ref() {
+            if let Some(window) = handle.app_handle().get_webview_window("main") {
+                let _ = window.emit(event, payload);
+            }
         }
     }
 }
 
-fn get_frontend_servers() -> Vec<FrontendServer> {
-    get_cloned_servers()
+fn get_frontend_servers() -> Result<Vec<FrontendServer>, Box<dyn std::error::Error>> {
+    Ok(get_cloned_servers()?
         .iter()
-        .map(|server| FrontendServer {
-            server: server.clone(),
-            status: process::get_status(&server.server_id),
+        .filter_map(|server| {
+            Some(FrontendServer {
+                server: server.clone(),
+                status: process::get_status(&server.server_id).ok()?,
+            })
         })
-        .collect::<Vec<FrontendServer>>()
+        .collect::<Vec<FrontendServer>>())
 }
-fn update_frontend() {
-    try_emit::<Vec<FrontendServer>>("update-local-servers", get_frontend_servers());
+
+fn update_frontend() -> Result<(), Box<dyn std::error::Error>> {
+    try_emit::<Vec<FrontendServer>>("update-local-servers", get_frontend_servers()?);
+
+    Ok(())
 }
 
 #[tauri::command]
-fn init_window_properties(app: tauri::AppHandle) -> Vec<FrontendServer> {
-    *MAIN_HANDLE.lock().unwrap() = Some(app);
-    get_frontend_servers()
+fn init_window_properties(app: tauri::AppHandle) -> Result<Vec<FrontendServer>, String> {
+    // set handle so we can use it later
+    if let Ok(mut handle) = MAIN_HANDLE.lock() {
+        *handle = Some(app);
+    }
+
+    get_frontend_servers().map_err(|e| e.to_string())
 }
 
 #[tauri::command]
 async fn fetch_versions(server_type: String) -> Vec<String> {
     match server_type.as_str() {
-        "Vanilla" => get_vanilla_versions().await.unwrap(),
-        "Paper" => get_paper_versions().await.unwrap(),
+        "Vanilla" => get_vanilla_versions().await.unwrap_or_else(|_| Vec::new()),
+        "Paper" => get_paper_versions().await.unwrap_or_else(|_| Vec::new()),
         _ => vec![],
     }
 }
@@ -100,7 +111,9 @@ async fn create_server(server_name: String, server_type: String, version: String
     // install server
     try_emit("update-create-button-text", "Installing server...");
     match server.install().await {
-        Ok(_) => update_frontend(),
+        Ok(_) => {
+            let _ = update_frontend();
+        }
         Err(ref err) => try_emit::<String>("alert", format!("{}", err)),
     }
 }
@@ -113,15 +126,17 @@ async fn update_server(server: Server) {
 #[tauri::command(async)]
 fn start_server(server_id: &str) {
     let servers = get_cloned_servers();
-    let server = servers.iter().find(|s| s.server_id == server_id).cloned();
-    process::start_server(server_id).expect("Failed to launch server");
-    if let Some(server) = server {
-        if server.auto_backup_on_start {
-            if let Err(e) = server.create_backup() {
-                eprintln!(
-                    "Failed to create backup on startup for server {}: {}",
-                    server.server_id, e
-                );
+    if let Ok(servers) = servers {
+        let server = servers.iter().find(|s| s.server_id == server_id).cloned();
+        process::start_server(server_id).expect("Failed to launch server");
+        if let Some(server) = server {
+            if server.auto_backup_on_start {
+                if let Err(e) = server.create_backup() {
+                    eprintln!(
+                        "Failed to create backup on startup for server {}: {}",
+                        server.server_id, e
+                    );
+                }
             }
         }
     }
@@ -134,11 +149,15 @@ fn get_stdout(server_id: &str) -> Vec<String> {
 
 #[tauri::command(async)]
 fn set_eula_accepted(server_id: &str, accepted: bool) {
-    let server = get_cloned_servers()
-        .into_iter()
-        .find(|s| s.server_id == server_id)
-        .expect("server not found");
-    server.set_eula_accepted(accepted);
+    let servers = get_cloned_servers();
+
+    if let Ok(servers) = servers {
+        let server = servers
+            .into_iter()
+            .find(|s| s.server_id == server_id)
+            .expect("server not found");
+        server.set_eula_accepted(accepted);
+    }
 }
 
 #[tauri::command(async)]
@@ -147,68 +166,89 @@ fn write_stdin(server_id: &str, string: &str) {
 }
 
 #[tauri::command(async)]
-fn read_properties_lines(server_id: &str) -> Vec<String> {
+fn read_properties_lines(server_id: &str) -> Result<Vec<String>, String> {
     let server = get_cloned_servers()
+        .map_err(|e| e.to_string())?
         .into_iter()
         .find(|s| s.server_id == server_id)
         .expect("server not found");
-    server
+
+    Ok(server
         .read_properties_lines()
-        .expect("failed to read server.properties")
+        .expect("failed to read server.properties"))
 }
 
 #[tauri::command(async)]
 fn write_properties(server_id: &str, new_properties: &str) {
-    let server = get_cloned_servers()
-        .into_iter()
-        .find(|s| s.server_id == server_id)
-        .expect("server not found");
-    server.write_properties(new_properties);
+    let servers = get_cloned_servers();
+
+    if let Ok(servers) = servers {
+        let server = servers
+            .into_iter()
+            .find(|s| s.server_id == server_id)
+            .expect("server not found");
+        server.write_properties(new_properties);
+    }
 }
 
 #[tauri::command(async)]
 fn remove_server(server_id: &str) {
-    let server = get_cloned_servers()
-        .into_iter()
-        .find(|s| s.server_id == server_id)
-        .expect("server not found");
-    server.remove();
+    let servers = get_cloned_servers();
+
+    if let Ok(servers) = servers {
+        let server = servers
+            .into_iter()
+            .find(|s| s.server_id == server_id)
+            .expect("server not found");
+        server.remove();
+    }
 }
 
 #[tauri::command]
-fn get_backups(server_id: &str) -> Vec<crate::manager::backups::BackupEntry> {
+fn get_backups(server_id: &str) -> Result<Vec<crate::manager::backups::BackupEntry>, String> {
     let server = get_cloned_servers()
+        .map_err(|e| e.to_string())?
         .into_iter()
         .find(|s| s.server_id == server_id)
         .expect("server not found");
-    server.list_backups()
+
+    server.list_backups().map_err(|e| e.to_string())
 }
 
 #[tauri::command]
 fn create_backup(server_id: &str) {
-    let server = get_cloned_servers()
-        .into_iter()
-        .find(|s| s.server_id == server_id)
-        .expect("server not found");
-    if let Err(e) = server.create_backup() {
-        eprintln!("Failed to create backup: {}", e);
+    let servers = get_cloned_servers();
+
+    if let Ok(servers) = servers {
+        let server = servers
+            .into_iter()
+            .find(|s| s.server_id == server_id)
+            .expect("server not found");
+        if let Err(e) = server.create_backup() {
+            eprintln!("Failed to create backup: {}", e);
+        }
     }
 }
 
 #[tauri::command]
 fn delete_backup(server_id: &str, backup_name: &str) {
-    let server = get_cloned_servers()
-        .into_iter()
-        .find(|s| s.server_id == server_id)
-        .expect("server not found");
-    if let Err(e) = server.delete_backup(backup_name) {
-        eprintln!("Failed to delete backup: {}", e);
+    let servers = get_cloned_servers();
+
+    if let Ok(servers) = servers {
+        let server = servers
+            .into_iter()
+            .find(|s| s.server_id == server_id)
+            .expect("server not found");
+        if let Err(e) = server.delete_backup(backup_name) {
+            eprintln!("Failed to delete backup: {}", e);
+        }
     }
 }
 
 #[tauri::command]
 async fn restore_backup(server_id: &str, backup_name: &str) -> Result<(), String> {
     let server = get_cloned_servers()
+        .map_err(|e| e.to_string())?
         .into_iter()
         .find(|s| s.server_id == server_id)
         .ok_or("server not found")?;
@@ -226,7 +266,7 @@ async fn update_auto_backup(
     interval: String,
     on_start: bool,
 ) -> Result<(), String> {
-    let servers = get_cloned_servers();
+    let servers = get_cloned_servers().map_err(|e| e.to_string())?;
     if let Some(server) = servers.iter().find(|s| s.server_id == server_id) {
         server.set_auto_backup(enabled, interval.clone(), on_start);
         if enabled {
@@ -242,13 +282,17 @@ async fn update_auto_backup(
 fn open_server_folder(server_id: &str) {
     use tauri_plugin_opener::OpenerExt;
     let servers = get_cloned_servers();
-    if let Some(server) = servers.iter().find(|s| s.server_id == server_id) {
-        let path = server.get_server_path();
-        if let Some(handle) = MAIN_HANDLE.lock().unwrap().as_ref() {
-            let _ = handle
-                .app_handle()
-                .opener()
-                .open_path(path.to_string_lossy().to_string(), None::<&str>);
+    if let Ok(servers) = servers {
+        if let Some(server) = servers.iter().find(|s| s.server_id == server_id) {
+            let path = server.get_server_path();
+            if let Ok(handle) = MAIN_HANDLE.lock() {
+                if let Some(handle) = handle.as_ref() {
+                    let _ = handle
+                        .app_handle()
+                        .opener()
+                        .open_path(path.to_string_lossy().to_string(), None::<&str>);
+                }
+            }
         }
     }
 }
@@ -257,20 +301,26 @@ fn open_server_folder(server_id: &str) {
 fn open_backup_folder(server_id: &str) {
     use tauri_plugin_opener::OpenerExt;
     let servers = get_cloned_servers();
-    if let Some(server) = servers.iter().find(|s| s.server_id == server_id) {
-        let path = server.ensure_backup_path();
-        if let Some(handle) = MAIN_HANDLE.lock().unwrap().as_ref() {
-            let _ = handle
-                .app_handle()
-                .opener()
-                .open_path(path.to_string_lossy().to_string(), None::<&str>);
+    if let Ok(servers) = servers {
+        if let Some(server) = servers.iter().find(|s| s.server_id == server_id) {
+            let path = server.ensure_backup_path();
+            if let Ok(path) = path {
+                if let Ok(handle) = MAIN_HANDLE.lock() {
+                    if let Some(handle) = handle.as_ref() {
+                        let _ = handle
+                            .app_handle()
+                            .opener()
+                            .open_path(path.to_string_lossy().to_string(), None::<&str>);
+                    }
+                }
+            }
         }
     }
 }
 
 #[tauri::command(async)]
 async fn add_whitelist_entry(server_id: &str, username: &str) -> Result<(), String> {
-    let servers = get_cloned_servers();
+    let servers = get_cloned_servers().map_err(|e| e.to_string())?;
     if let Some(server) = servers.iter().find(|s| s.server_id == server_id) {
         server
             .add_whitelist_entry(username)
@@ -283,7 +333,7 @@ async fn add_whitelist_entry(server_id: &str, username: &str) -> Result<(), Stri
 
 #[tauri::command]
 fn list_whitelist_entries(server_id: &str) -> Result<Vec<WhitelistEntry>, String> {
-    let servers = get_cloned_servers();
+    let servers = get_cloned_servers().map_err(|e| e.to_string())?;
     if let Some(server) = servers.iter().find(|s| s.server_id == server_id) {
         server.read_whitelist().map_err(|e| e.to_string())
     } else {
@@ -293,7 +343,7 @@ fn list_whitelist_entries(server_id: &str) -> Result<Vec<WhitelistEntry>, String
 
 #[tauri::command(async)]
 fn remove_whitelist_entry(server_id: &str, entry: WhitelistEntry) -> Result<(), String> {
-    let servers = get_cloned_servers();
+    let servers = get_cloned_servers().map_err(|e| e.to_string())?;
     if let Some(server) = servers.iter().find(|s| s.server_id == server_id) {
         server
             .remove_whitelist_entry(&entry)
@@ -305,7 +355,7 @@ fn remove_whitelist_entry(server_id: &str, entry: WhitelistEntry) -> Result<(), 
 
 #[tauri::command]
 fn set_whitelist_enabled(server_id: &str, enabled: bool) -> Result<(), String> {
-    let servers = get_cloned_servers();
+    let servers = get_cloned_servers().map_err(|e| e.to_string())?;
     if let Some(server) = servers.iter().find(|s| s.server_id == server_id) {
         server
             .set_whitelist_enabled(enabled)
@@ -318,16 +368,20 @@ fn set_whitelist_enabled(server_id: &str, enabled: bool) -> Result<(), String> {
 #[tauri::command]
 fn is_whitelist_enabled(server_id: &str) -> bool {
     let servers = get_cloned_servers();
-    if let Some(server) = servers.iter().find(|s| s.server_id == server_id) {
-        server.is_whitelist_enabled()
-    } else {
-        false
+    if let Ok(servers) = servers {
+        if let Some(server) = servers.iter().find(|s| s.server_id == server_id) {
+            return server.is_whitelist_enabled();
+        } else {
+            return false;
+        }
     }
+
+    false
 }
 
 #[tauri::command(async)]
 async fn ban_player(server_id: &str, username: &str, reason: &str) -> Result<(), String> {
-    let servers = get_cloned_servers();
+    let servers = get_cloned_servers().map_err(|e| e.to_string())?;
     if let Some(server) = servers.iter().find(|s| s.server_id == server_id) {
         server
             .ban_player(username, reason)
@@ -340,7 +394,7 @@ async fn ban_player(server_id: &str, username: &str, reason: &str) -> Result<(),
 
 #[tauri::command(async)]
 async fn ban_ip(server_id: &str, ip: &str, reason: &str) -> Result<(), String> {
-    let servers = get_cloned_servers();
+    let servers = get_cloned_servers().map_err(|e| e.to_string())?;
     if let Some(server) = servers.iter().find(|s| s.server_id == server_id) {
         server.ban_ip(ip, reason).await.map_err(|e| e.to_string())
     } else {
@@ -350,7 +404,7 @@ async fn ban_ip(server_id: &str, ip: &str, reason: &str) -> Result<(), String> {
 
 #[tauri::command(async)]
 fn read_banned_players(server_id: &str) -> Result<Vec<BanEntry>, String> {
-    let servers = get_cloned_servers();
+    let servers = get_cloned_servers().map_err(|e| e.to_string())?;
     if let Some(server) = servers.iter().find(|s| s.server_id == server_id) {
         server.read_banned_players().map_err(|e| e.to_string())
     } else {
@@ -360,7 +414,7 @@ fn read_banned_players(server_id: &str) -> Result<Vec<BanEntry>, String> {
 
 #[tauri::command(async)]
 fn read_banned_ips(server_id: &str) -> Result<Vec<IpBanEntry>, String> {
-    let servers = get_cloned_servers();
+    let servers = get_cloned_servers().map_err(|e| e.to_string())?;
     if let Some(server) = servers.iter().find(|s| s.server_id == server_id) {
         server.read_banned_ips().map_err(|e| e.to_string())
     } else {
@@ -370,7 +424,7 @@ fn read_banned_ips(server_id: &str) -> Result<Vec<IpBanEntry>, String> {
 
 #[tauri::command(async)]
 fn unban_player(server_id: &str, entry: BanEntry) -> Result<(), String> {
-    let servers = get_cloned_servers();
+    let servers = get_cloned_servers().map_err(|e| e.to_string())?;
     if let Some(server) = servers.iter().find(|s| s.server_id == server_id) {
         server.unban_player(entry).map_err(|e| e.to_string())
     } else {
@@ -380,7 +434,7 @@ fn unban_player(server_id: &str, entry: BanEntry) -> Result<(), String> {
 
 #[tauri::command(async)]
 fn unban_ip(server_id: &str, entry: IpBanEntry) -> Result<(), String> {
-    let servers = get_cloned_servers();
+    let servers = get_cloned_servers().map_err(|e| e.to_string())?;
     if let Some(server) = servers.iter().find(|s| s.server_id == server_id) {
         server.unban_ip(entry).map_err(|e| e.to_string())
     } else {
@@ -390,7 +444,7 @@ fn unban_ip(server_id: &str, entry: IpBanEntry) -> Result<(), String> {
 
 #[tauri::command(async)]
 async fn add_operator(server_id: &str, username: &str) -> Result<(), String> {
-    let servers = get_cloned_servers();
+    let servers = get_cloned_servers().map_err(|e| e.to_string())?;
     if let Some(server) = servers.iter().find(|s| s.server_id == server_id) {
         server
             .add_operator(username)
@@ -403,7 +457,7 @@ async fn add_operator(server_id: &str, username: &str) -> Result<(), String> {
 
 #[tauri::command]
 fn remove_operator(server_id: &str, entry: OperatorEntry) -> Result<(), String> {
-    let servers = get_cloned_servers();
+    let servers = get_cloned_servers().map_err(|e| e.to_string())?;
     if let Some(server) = servers.iter().find(|s| s.server_id == server_id) {
         server.remove_operator(&entry).map_err(|e| e.to_string())
     } else {
@@ -413,7 +467,7 @@ fn remove_operator(server_id: &str, entry: OperatorEntry) -> Result<(), String> 
 
 #[tauri::command]
 fn list_operator_entries(server_id: &str) -> Result<Vec<OperatorEntry>, String> {
-    let servers = get_cloned_servers();
+    let servers = get_cloned_servers().map_err(|e| e.to_string())?;
     if let Some(server) = servers.iter().find(|s| s.server_id == server_id) {
         server.read_operators().map_err(|e| e.to_string())
     } else {
@@ -425,14 +479,16 @@ fn list_operator_entries(server_id: &str) -> Result<Vec<OperatorEntry>, String> 
 pub fn run() {
     // run cron jobs
     tauri::async_runtime::spawn(async {
-        cron::init_backup_jobs().await;
+        let _ = cron::init_backup_jobs().await;
     });
 
     tauri::Builder::default()
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_dialog::init())
         .on_window_event(|_window, event| match event {
-            WindowEvent::CloseRequested { api: _, .. } => process::stop_all_servers(),
+            WindowEvent::CloseRequested { api: _, .. } => {
+                let _ = process::stop_all_servers();
+            }
             _ => (),
         })
         .invoke_handler(tauri::generate_handler![

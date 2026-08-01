@@ -38,18 +38,20 @@ pub(crate) struct Server {
 }
 
 impl Server {
-    pub fn add(&self) {
+    pub fn add(&self) -> Result<(), Box<dyn std::error::Error>> {
         {
-            let mut servers = SERVERS.lock().unwrap();
+            let mut servers = SERVERS.lock()?;
             servers.push(self.clone());
         }
         save_servers();
         update_frontend();
+
+        Ok(())
     }
 
-    pub fn remove(&self) {
+    pub fn remove(&self) -> Result<(), Box<dyn std::error::Error>> {
         {
-            let mut servers = SERVERS.lock().unwrap();
+            let mut servers = SERVERS.lock()?;
 
             if let Some(index) = servers.iter().position(|s| s.server_id == self.server_id) {
                 servers.remove(index);
@@ -59,15 +61,17 @@ impl Server {
         }
         save_servers();
         update_frontend();
+
+        Ok(())
     }
 
-    pub async fn change_server_details(&self, new_server_type: &str, new_server_version: &str) {
+    pub async fn change_server_details(
+        &self,
+        new_server_type: &str,
+        new_server_version: &str,
+    ) -> Result<(), Box<dyn std::error::Error>> {
         let jre_version = &get_jre_version(new_server_version);
-        let java_path: String = jre_version
-            .download()
-            .await
-            .map(|result| result.to_string_lossy().into_owned())
-            .unwrap_or(String::from(""));
+        let java_path: String = jre_version.download().await?.to_string_lossy().to_string();
 
         let updated = Server {
             server_id: self.server_id.clone(),
@@ -83,23 +87,22 @@ impl Server {
             auto_backup_interval: self.auto_backup_interval.clone(),
         };
 
-        match updated.install().await {
-            Ok(_) => {
-                let mut servers = SERVERS.lock().unwrap();
-                if let Some(index) = servers.iter().position(|s| s.server_id == self.server_id) {
-                    servers[index] = updated
-                }
-            }
-            Err(ref err) => try_emit::<String>("alert", format!("{}", err)),
+        updated.install().await?;
+
+        let mut servers = SERVERS.lock()?;
+        if let Some(index) = servers.iter().position(|s| s.server_id == self.server_id) {
+            servers[index] = updated
         }
 
         save_servers();
         update_frontend();
+
+        Ok(())
     }
 
-    pub async fn update(&self) {
+    pub async fn update(&self) -> Result<(), Box<dyn std::error::Error>> {
         let needs_reinstall: bool = {
-            let servers = SERVERS.lock().unwrap();
+            let servers = SERVERS.lock()?;
             if let Some(s) = servers.iter().find(|s| s.server_id == self.server_id) {
                 if s.server_type != self.server_type || s.server_version != self.server_version {
                     true
@@ -136,7 +139,7 @@ impl Server {
             {
                 match updated.install().await {
                     Ok(_) => {
-                        let mut servers = SERVERS.lock().unwrap();
+                        let mut servers = SERVERS.lock()?;
                         if let Some(index) =
                             servers.iter().position(|s| s.server_id == self.server_id)
                         {
@@ -147,7 +150,7 @@ impl Server {
                 }
             }
         } else {
-            let mut servers = SERVERS.lock().unwrap();
+            let mut servers = SERVERS.lock()?;
             if let Some(index) = servers.iter().position(|s| s.server_id == self.server_id) {
                 servers[index] = Server {
                     server_id: self.server_id.clone(),
@@ -167,24 +170,22 @@ impl Server {
 
         save_servers();
         update_frontend();
+
+        Ok(())
     }
 
     pub async fn install(&self) -> Result<(), Box<dyn std::error::Error>> {
         let mut server_path = self.get_server_path();
 
-        if !fs::exists(&server_path).unwrap() {
-            fs::create_dir_all(&server_path).expect("Failed to create server directory");
+        if !server_path.exists() {
+            fs::create_dir_all(&server_path)?;
         }
 
         let jar_file = match self.server_type.as_str() {
             "Vanilla" => jars::get_mojang_jar(&self.server_version).await,
             "Paper" => jars::get_paper_jar(&self.server_version).await,
             _ => jars::get_paper_jar(&self.server_version).await,
-        };
-
-        if let Err(ref err) = jar_file {
-            return Err(format!("failed to fetch jar file: {}", err).into());
-        }
+        }?;
 
         server_path.push("server.jar");
 
@@ -193,7 +194,7 @@ impl Server {
             .truncate(true)
             .write(true)
             .open(&server_path)?
-            .write_all(&jar_file.unwrap())?;
+            .write_all(&jar_file)?;
 
         Ok(())
     }
@@ -216,15 +217,14 @@ impl Server {
     pub fn read_properties_lines(&self) -> Result<Vec<String>, Box<dyn std::error::Error>> {
         let mut server_properties_path = self.get_server_path();
         server_properties_path.push("server.properties");
-        if !fs::exists(&server_properties_path).unwrap() {
+        if !server_properties_path.exists() {
             return Ok(Vec::new());
         }
 
         let server_properties_file = OpenOptions::new()
             .create(false)
             .read(true)
-            .open(server_properties_path)
-            .unwrap();
+            .open(server_properties_path)?;
 
         let mut lines: Vec<String> = Vec::new();
         let mut reader = BufReader::new(server_properties_file);
@@ -234,8 +234,10 @@ impl Server {
             match reader.read_until(b'\n', &mut buf) {
                 Ok(0) => break,
                 Ok(_) => {
-                    let line = String::from_utf8(buf).unwrap();
-                    lines.push(line.trim_end().to_string());
+                    let line = String::from_utf8(buf);
+                    if let Ok(line) = line {
+                        lines.push(line.trim_end().to_string());
+                    }
                 }
                 Err(ref e) => {
                     if e.kind() == ErrorKind::WouldBlock {
@@ -249,7 +251,7 @@ impl Server {
         Ok(lines)
     }
 
-    pub fn write_properties(&self, properties: &str) {
+    pub fn write_properties(&self, properties: &str) -> Result<(), Box<dyn std::error::Error>> {
         let mut server_properties_path = self.get_server_path();
         server_properties_path.push("server.properties");
 
@@ -257,12 +259,13 @@ impl Server {
             .create(true)
             .write(true)
             .truncate(true)
-            .open(server_properties_path)
-            .unwrap();
+            .open(server_properties_path)?;
 
         server_properties_file
             .write_all(properties.as_bytes())
             .expect("failed to write to server.properties");
+
+        Ok(())
     }
 
     pub fn get_server_path(&self) -> std::path::PathBuf {
@@ -272,19 +275,26 @@ impl Server {
         path
     }
 
-    pub fn clean_server_directory(&self) {
+    pub fn clean_server_directory(&self) -> Result<(), Box<dyn std::error::Error>> {
         let mut path = get_core_path();
         path.push("servers");
         path.push(&self.server_id);
 
-        if fs::exists(&path).unwrap() {
-            fs::remove_dir_all(path).unwrap();
+        if path.exists() {
+            fs::remove_dir_all(path)?;
         }
+
+        Ok(())
     }
 
-    pub fn set_auto_backup(&self, enabled: bool, interval: String, on_start: bool) {
+    pub fn set_auto_backup(
+        &self,
+        enabled: bool,
+        interval: String,
+        on_start: bool,
+    ) -> Result<(), Box<dyn std::error::Error>> {
         {
-            let mut servers = SERVERS.lock().unwrap();
+            let mut servers = SERVERS.lock()?;
             if let Some(index) = servers.iter().position(|s| s.server_id == self.server_id) {
                 let mut server = servers[index].clone();
                 server.auto_backups = enabled;
@@ -295,11 +305,14 @@ impl Server {
         }
         save_servers();
         update_frontend();
+
+        Ok(())
     }
 }
 
-pub fn get_cloned_servers() -> Vec<Server> {
-    (*SERVERS.lock().unwrap()).clone()
+pub fn get_cloned_servers() -> Result<Vec<Server>, Box<dyn std::error::Error>> {
+    let locked_servers = SERVERS.lock()?;
+    Ok(locked_servers.clone())
 }
 
 pub fn ensure_file() {
@@ -323,8 +336,8 @@ pub fn ensure_file() {
     }
 }
 
-pub fn save_servers() {
-    let servers = get_cloned_servers();
+pub fn save_servers() -> Result<(), Box<dyn std::error::Error>> {
+    let servers = get_cloned_servers()?;
 
     let mut path = get_core_path();
     path.push(SERVER_STORAGE_FILE);
@@ -339,6 +352,8 @@ pub fn save_servers() {
     storage_file
         .write_all(json.as_bytes())
         .expect("Failed to write json");
+
+    Ok(())
 }
 
 pub fn read_servers() -> Vec<Server> {

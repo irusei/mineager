@@ -36,7 +36,7 @@ impl Server {
         whitelist_path.push("whitelist.json");
 
         // run /whitelist add if server is already running
-        if process::get_status(&self.server_id) == ServerStatus::Online {
+        if process::get_status(&self.server_id)? == ServerStatus::Online {
             process::write_stdin(&self.server_id, &format!("/whitelist add {}", username));
             return Ok(());
         }
@@ -92,7 +92,7 @@ impl Server {
         whitelist_path.push("whitelist.json");
 
         // run /whitelist remove if server is already running
-        if process::get_status(&self.server_id) == ServerStatus::Online {
+        if process::get_status(&self.server_id)? == ServerStatus::Online {
             process::write_stdin(
                 &self.server_id,
                 &format!("/whitelist remove {}", entry.name),
@@ -122,7 +122,7 @@ impl Server {
 
     pub fn set_whitelist_enabled(&self, enabled: bool) -> Result<(), Box<dyn std::error::Error>> {
         // run command if server is online
-        if process::get_status(&self.server_id) == ServerStatus::Online {
+        if process::get_status(&self.server_id)? == ServerStatus::Online {
             if enabled {
                 process::write_stdin(&self.server_id, "/whitelist on");
             } else {

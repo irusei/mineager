@@ -39,7 +39,7 @@ pub async fn get_paper_versions() -> Result<Vec<String>, reqwest::Error> {
     Ok(versions)
 }
 
-pub async fn get_vanilla_versions() -> Result<Vec<String>, reqwest::Error> {
+pub async fn get_vanilla_versions() -> Result<Vec<String>, Box<dyn std::error::Error>> {
     // fetch mojang manifest
     let body = reqwest::get(MOJANG_MANIFEST)
         .await?
@@ -51,7 +51,9 @@ pub async fn get_vanilla_versions() -> Result<Vec<String>, reqwest::Error> {
         .iter()
         .filter_map(|version| {
             // earliest server.jar is 1.2.5
-            if version.manifest_type == "release" && compare_versions(&version.id, "1.2.5") >= 0 {
+            if version.manifest_type == "release"
+                && compare_versions(&version.id, "1.2.5").ok()? >= 0
+            {
                 Some(version.id.to_string())
             } else {
                 None
@@ -76,18 +78,21 @@ pub async fn get_vanilla_manifest_from_version(
     }
 }
 
-pub fn compare_versions(version1: &str, version2: &str) -> isize {
+pub fn compare_versions(
+    version1: &str,
+    version2: &str,
+) -> Result<isize, Box<dyn std::error::Error>> {
     // compares two minecraft versions,
     // returns -1 if version1 is lower
     // returns 0 if they're the same
     // returns 1 if version1 is higher
 
     // drop -rc, -pre, -beta
-    let v1 = version1.split("-").next().unwrap();
-    let v2 = version2.split("-").next().unwrap();
+    let v1 = version1.split("-").next().ok_or("missing version")?;
+    let v2 = version2.split("-").next().ok_or("missing version")?;
 
     if v1.eq(v2) {
-        return 0;
+        return Ok(0);
     }
 
     let mut vn1_split = v1.split(".");
@@ -103,24 +108,24 @@ pub fn compare_versions(version1: &str, version2: &str) -> isize {
         // (1.2 vs 1.2.1 -> the second one is longer, so obviously newer)
         if segment1.is_none() && !segment2.is_none() {
             if segment2.unwrap() == "0" {
-                return 0;
+                return Ok(0);
             }
-            return -1;
+            return Ok(-1);
         } else if !segment1.is_none() && segment2.is_none() {
             if segment1.unwrap() == "0" {
-                return 0;
+                return Ok(0);
             }
-            return 1;
+            return Ok(1);
         }
 
         // convert the version numbers to usize and compare them
-        let num1: usize = segment1.unwrap().parse().unwrap();
-        let num2: usize = segment2.unwrap().parse().unwrap();
+        let num1: usize = segment1.ok_or("missing segment")?.parse()?;
+        let num2: usize = segment2.ok_or("missing segment")?.parse()?;
 
         if num1 > num2 {
-            return 1;
+            return Ok(1);
         } else if num1 < num2 {
-            return -1;
+            return Ok(-1);
         }
 
         // continue loop if same number and then check the next one
@@ -133,51 +138,51 @@ mod tests {
 
     #[test]
     fn test_compare_same_versions() {
-        assert_eq!(compare_versions("1.2.1", "1.2.1"), 0)
+        assert_eq!(compare_versions("1.2.1", "1.2.1").unwrap(), 0)
     }
 
     #[test]
     fn test_greater_major() {
-        assert_eq!(compare_versions("2.0.0", "1.9.9"), 1);
+        assert_eq!(compare_versions("2.0.0", "1.9.9").unwrap(), 1);
     }
 
     #[test]
     fn test_smaller_major() {
-        assert_eq!(compare_versions("1.0.0", "2.0.0"), -1);
+        assert_eq!(compare_versions("1.0.0", "2.0.0").unwrap(), -1);
     }
 
     #[test]
     fn test_greater_minor() {
-        assert_eq!(compare_versions("1.3.0", "1.2.9"), 1);
+        assert_eq!(compare_versions("1.3.0", "1.2.9").unwrap(), 1);
     }
 
     #[test]
     fn test_smaller_minor() {
-        assert_eq!(compare_versions("1.2.0", "1.3.0"), -1);
+        assert_eq!(compare_versions("1.2.0", "1.3.0").unwrap(), -1);
     }
 
     #[test]
     fn test_greater_patch() {
-        assert_eq!(compare_versions("1.2.5", "1.2.3"), 1);
+        assert_eq!(compare_versions("1.2.5", "1.2.3").unwrap(), 1);
     }
 
     #[test]
     fn test_smaller_patch() {
-        assert_eq!(compare_versions("1.2.3", "1.2.5"), -1);
+        assert_eq!(compare_versions("1.2.3", "1.2.5").unwrap(), -1);
     }
 
     #[test]
     fn test_sub_patch_equal() {
-        assert_eq!(compare_versions("1.2", "1.2.0"), 0);
+        assert_eq!(compare_versions("1.2", "1.2.0").unwrap(), 0);
     }
 
     #[test]
     fn test_sub_patch_greater() {
-        assert_eq!(compare_versions("1.2.1", "1.2"), 1);
+        assert_eq!(compare_versions("1.2.1", "1.2").unwrap(), 1);
     }
 
     #[test]
     fn test_sub_patch_smaller() {
-        assert_eq!(compare_versions("1.2", "1.2.1"), -1);
+        assert_eq!(compare_versions("1.2", "1.2.1").unwrap(), -1);
     }
 }

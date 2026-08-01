@@ -1,7 +1,6 @@
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::io::{BufRead, BufReader, Write};
-use std::os::windows::process::CommandExt;
 use std::process::{ChildStderr, ChildStdin, Command, Stdio};
 use std::sync::{Arc, LazyLock, Mutex};
 use std::{fs, thread};
@@ -32,7 +31,7 @@ static SERVER_PROCESS_HASHMAP: LazyLock<Mutex<HashMap<String, ServerProcess>>> =
 
 pub fn start_server(server_id: &str) -> Result<(), Box<dyn std::error::Error>> {
     let server = {
-        let locked_servers = get_cloned_servers();
+        let locked_servers = get_cloned_servers()?;
         locked_servers
             .iter()
             .find(|s| s.server_id == server_id)
@@ -42,7 +41,7 @@ pub fn start_server(server_id: &str) -> Result<(), Box<dyn std::error::Error>> {
     if let Some(server) = server {
         // Check if process is running
         let process_running = {
-            let locked_processes = SERVER_PROCESS_HASHMAP.lock().unwrap();
+            let locked_processes = SERVER_PROCESS_HASHMAP.lock()?;
             locked_processes.contains_key(server_id)
         };
         if process_running {
@@ -75,6 +74,7 @@ pub fn start_server(server_id: &str) -> Result<(), Box<dyn std::error::Error>> {
         // create no window on windows
         #[cfg(windows)]
         {
+            use std::os::windows::process::CommandExt;
             config.creation_flags(0x08000000); // WINDOWS CREATE_NO_WINDOW CREATION FLAG
         }
 
@@ -94,7 +94,7 @@ pub fn start_server(server_id: &str) -> Result<(), Box<dyn std::error::Error>> {
 
         // Add process to hashmap
         {
-            let mut locked_processes = SERVER_PROCESS_HASHMAP.lock().unwrap();
+            let mut locked_processes = SERVER_PROCESS_HASHMAP.lock()?;
             locked_processes.insert(server_id.to_string(), server_process);
         }
 
@@ -110,10 +110,12 @@ pub fn start_server(server_id: &str) -> Result<(), Box<dyn std::error::Error>> {
                 match reader.read_until(b'\n', &mut buf) {
                     Ok(0) => break,
                     Ok(_) => {
-                        let line = String::from_utf8(buf).unwrap();
-                        match write_stdout(&server_id_clone, line.trim_end()) {
-                            Ok(_) => continue,
-                            Err(_) => break,
+                        let line = String::from_utf8(buf);
+                        if let Ok(line) = line {
+                            match write_stdout(&server_id_clone, line.trim_end()) {
+                                Ok(_) => continue,
+                                Err(_) => break,
+                            }
                         }
                     }
                     Err(_) => break,
@@ -130,10 +132,12 @@ pub fn start_server(server_id: &str) -> Result<(), Box<dyn std::error::Error>> {
                 match reader.read_until(b'\n', &mut buf) {
                     Ok(0) => break,
                     Ok(_) => {
-                        let line = String::from_utf8(buf).unwrap();
-                        match write_stdout(&server_id_clone, line.trim_end()) {
-                            Ok(_) => continue,
-                            Err(_) => break,
+                        let line = String::from_utf8(buf);
+                        if let Ok(line) = line {
+                            match write_stdout(&server_id_clone, line.trim_end()) {
+                                Ok(_) => continue,
+                                Err(_) => break,
+                            }
                         }
                     }
                     Err(_) => break,
@@ -148,12 +152,13 @@ pub fn start_server(server_id: &str) -> Result<(), Box<dyn std::error::Error>> {
             {
                 child_arc
                     .lock()
-                    .unwrap()
+                    .expect("Failed to get child_arc")
                     .wait()
                     .expect("Failed to wait on process");
+
                 SERVER_PROCESS_HASHMAP
                     .lock()
-                    .unwrap()
+                    .expect("SERVER_PROCESS_HASHMAP poisoned")
                     .remove(&server_id_clone);
             }
 
@@ -166,19 +171,16 @@ pub fn start_server(server_id: &str) -> Result<(), Box<dyn std::error::Error>> {
 }
 
 pub fn get_stdout(server_id: &str) -> Vec<String> {
-    if let Some(proc) = SERVER_PROCESS_HASHMAP
-        .lock()
-        .unwrap()
-        .get(server_id)
-        .clone()
-    {
-        return proc.stdout.clone();
+    if let Ok(sph) = SERVER_PROCESS_HASHMAP.lock() {
+        if let Some(proc) = sph.get(server_id).clone() {
+            return proc.stdout.clone();
+        }
     }
     vec![]
 }
 
-pub fn write_stdout(server_id: &str, line: &str) -> Result<(), ()> {
-    let mut process_hashmap = SERVER_PROCESS_HASHMAP.lock().unwrap();
+pub fn write_stdout(server_id: &str, line: &str) -> Result<(), Box<dyn std::error::Error>> {
+    let mut process_hashmap = SERVER_PROCESS_HASHMAP.lock()?;
     let proc = process_hashmap.get_mut(server_id);
     if let Some(proc) = proc {
         try_emit::<ConsoleUpdatePayload>(
@@ -189,18 +191,16 @@ pub fn write_stdout(server_id: &str, line: &str) -> Result<(), ()> {
             },
         );
         proc.stdout.push(line.to_string());
-        Ok(())
-    } else {
-        Err(())
     }
+
+    Ok(())
 }
 
-pub fn write_stdin(server_id: &str, string: &str) {
+pub fn write_stdin(server_id: &str, string: &str) -> Result<(), Box<dyn std::error::Error>> {
     // get stdin arc
     let stdin = {
         SERVER_PROCESS_HASHMAP
-            .lock()
-            .unwrap()
+            .lock()?
             .get(server_id)
             .map(|s| s.stdin.clone())
     };
@@ -208,36 +208,38 @@ pub fn write_stdin(server_id: &str, string: &str) {
     if let Some(stdin) = stdin {
         // write to child_stdin
         {
-            let mut child_stdin = stdin.lock().unwrap();
-            child_stdin
-                .write_all(format!("{}\n", string).as_bytes())
-                .unwrap();
+            let mut child_stdin = stdin.lock().map_err(|e| format!("mutex poisoned: {}", e))?;
+            child_stdin.write_all(format!("{}\n", string).as_bytes())?;
         }
 
         // now write to stdout
         write_stdout(server_id, &format!("> {}", string)).ok();
     }
+
+    Ok(())
 }
 
-pub fn stop_all_servers() {
+pub fn stop_all_servers() -> Result<(), Box<dyn std::error::Error>> {
     let server_ids: Vec<String> = {
-        let locked_processes = SERVER_PROCESS_HASHMAP.lock().unwrap();
+        let locked_processes = SERVER_PROCESS_HASHMAP.lock()?;
         locked_processes.keys().cloned().collect()
     };
 
     for server_id in server_ids {
         write_stdin(&server_id, "stop");
     }
+
+    Ok(())
 }
 
-pub fn get_status(server_id: &str) -> ServerStatus {
+pub fn get_status(server_id: &str) -> Result<ServerStatus, Box<dyn std::error::Error>> {
     let found = {
-        let locked_processes = SERVER_PROCESS_HASHMAP.lock().unwrap();
+        let locked_processes = SERVER_PROCESS_HASHMAP.lock()?;
         locked_processes.contains_key(server_id)
     };
 
-    match found {
+    Ok(match found {
         true => ServerStatus::Online,
         false => ServerStatus::Offline,
-    }
+    })
 }

@@ -36,7 +36,7 @@ impl Server {
         operator_path.push("ops.json");
 
         // run /op if server is already running
-        if process::get_status(&self.server_id) == ServerStatus::Online {
+        if process::get_status(&self.server_id)? == ServerStatus::Online {
             process::write_stdin(&self.server_id, &format!("/op {}", username));
             return Ok(());
         }
@@ -91,7 +91,7 @@ impl Server {
         operator_path.push("ops.json");
 
         // run /deop if server is already running
-        if process::get_status(&self.server_id) == ServerStatus::Online {
+        if process::get_status(&self.server_id)? == ServerStatus::Online {
             process::write_stdin(&self.server_id, &format!("/deop {}", entry.name));
             return Ok(());
         }

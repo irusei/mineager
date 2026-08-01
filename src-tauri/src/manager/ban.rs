@@ -70,7 +70,7 @@ impl Server {
         banned_player_path.push("banned-players.json");
 
         // run /ban if server is already running
-        if process::get_status(&self.server_id) == ServerStatus::Online {
+        if process::get_status(&self.server_id)? == ServerStatus::Online {
             if reason == "" {
                 process::write_stdin(&self.server_id, &format!("/ban {}", username));
             } else {
@@ -132,7 +132,7 @@ impl Server {
         banned_ips_path.push("banned-ips.json");
 
         // run /ban-ip if server is already running
-        if process::get_status(&self.server_id) == ServerStatus::Online {
+        if process::get_status(&self.server_id)? == ServerStatus::Online {
             if reason == "" {
                 process::write_stdin(&self.server_id, &format!("/ban-ip {}", ip));
             } else {
@@ -181,7 +181,7 @@ impl Server {
         banned_player_path.push("banned-players.json");
 
         // run /pardon if server is already running
-        if process::get_status(&self.server_id) == ServerStatus::Online {
+        if process::get_status(&self.server_id)? == ServerStatus::Online {
             process::write_stdin(&self.server_id, &format!("/pardon {}", entry.uuid)); // this apparently works?
             process::write_stdin(&self.server_id, &format!("/pardon {}", entry.name));
             return Ok(());
@@ -212,7 +212,7 @@ impl Server {
         banned_ips_path.push("banned-ips.json");
 
         // run /pardon-ip if server is already running
-        if process::get_status(&self.server_id) == ServerStatus::Online {
+        if process::get_status(&self.server_id)? == ServerStatus::Online {
             process::write_stdin(&self.server_id, &format!("/pardon-ip {}", entry.ip));
             return Ok(());
         }

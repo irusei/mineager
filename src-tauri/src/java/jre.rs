@@ -1,4 +1,4 @@
-use std::{fs, io::Cursor, path::PathBuf};
+use std::{io::Cursor, path::PathBuf};
 
 use sha2::Digest;
 use zip::ZipArchive;
@@ -35,7 +35,7 @@ impl JreVersion {
         folder_path.push("bin");
         folder_path.push("java.exe");
 
-        if !fs::exists(&folder_path).unwrap() {
+        if !folder_path.exists() {
             return None;
         }
 
@@ -77,41 +77,43 @@ impl JreVersion {
             return Ok(java_path);
         }
 
-        // pre-checks
-        if !cfg!(target_os = "windows") {
-            return Err(format!("unable to install Java on your platform").into());
-        }
-
         // get links to java
-        let java_download_url = self.match_jre_sources_download_url().unwrap();
-        let java_download_checksum = self.match_jre_sources_checksum().unwrap();
+        let java_download_url = self.match_jre_sources_download_url();
+        let java_download_checksum = self.match_jre_sources_checksum();
 
-        let zip_bytes = reqwest::get(java_download_url).await?.bytes().await?;
+        if let Some(java_download_url) = java_download_url {
+            if let Some(java_download_checksum) = java_download_checksum {
+                let zip_bytes = reqwest::get(java_download_url).await?.bytes().await?;
 
-        // verify checksum
-        let mut hasher = sha2::Sha256::new();
-        Digest::update(&mut hasher, &zip_bytes);
+                // verify checksum
+                let mut hasher = sha2::Sha256::new();
+                Digest::update(&mut hasher, &zip_bytes);
 
-        let sha256_checksum = hex::encode(hasher.finalize());
+                let sha256_checksum = hex::encode(hasher.finalize());
 
-        if !sha256_checksum.eq(java_download_checksum) {
-            return Err(format!(
-                "The provided checksum for the java doesn't match with what was downloaded."
-            )
-            .into());
+                if !sha256_checksum.eq(java_download_checksum) {
+                    return Err(format!(
+                        "The provided checksum for the java doesn't match with what was downloaded."
+                    )
+                    .into());
+                }
+
+                // extract zip from bytes into java folder
+                let mut java_folder = self.get_jre_folder_path();
+                let cursor = Cursor::new(zip_bytes);
+                let mut archive = ZipArchive::new(cursor)?;
+
+                // extract to folder
+                archive
+                    .extract_unwrapped_root_dir(&java_folder, zip::read::root_dir_common_filter)?;
+
+                java_folder.push("bin");
+                java_folder.push("java.exe");
+
+                return Ok(java_folder);
+            }
         }
 
-        // extract zip from bytes into java folder
-        let mut java_folder = self.get_jre_folder_path();
-        let cursor = Cursor::new(zip_bytes);
-        let mut archive = ZipArchive::new(cursor).unwrap();
-
-        // extract to folder
-        archive.extract_unwrapped_root_dir(&java_folder, zip::read::root_dir_common_filter)?;
-
-        java_folder.push("bin");
-        java_folder.push("java.exe");
-
-        Ok(java_folder)
+        Err("could not download Java".into())
     }
 }

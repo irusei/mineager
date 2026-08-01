@@ -25,31 +25,30 @@ pub struct BackupEntry {
 }
 
 impl Server {
-    pub fn ensure_backup_path(&self) -> PathBuf {
+    pub fn ensure_backup_path(&self) -> Result<PathBuf, Box<dyn std::error::Error>> {
         let mut path = get_core_path();
         path.push("backups");
         path.push(self.server_name.clone());
-        fs::create_dir_all(&path).unwrap();
-        path
+        fs::create_dir_all(&path)?;
+        Ok(path)
     }
 
-    pub fn list_backups(&self) -> Vec<BackupEntry> {
-        let server_backup_path = self.ensure_backup_path();
+    pub fn list_backups(&self) -> Result<Vec<BackupEntry>, Box<dyn std::error::Error>> {
+        let server_backup_path = self.ensure_backup_path()?;
         let mut entries: Vec<BackupEntry> = vec![];
 
-        for zip in fs::read_dir(&server_backup_path).unwrap() {
-            let zip = zip.unwrap();
-            let zip_path = zip.file_name();
-            let name = zip_path.into_string().unwrap();
-            let size = fs::metadata(server_backup_path.join(&name)).unwrap().len();
+        for zip in fs::read_dir(&server_backup_path)? {
+            let zip_path = zip?.file_name();
+            let name = zip_path.to_string_lossy().to_string();
+            let size = fs::metadata(server_backup_path.join(&name))?.len();
             entries.push(BackupEntry { name, size });
         }
 
-        entries
+        Ok(entries)
     }
 
     pub fn delete_backup(&self, backup_name: &str) -> Result<(), Box<dyn std::error::Error>> {
-        let mut backup_path = self.ensure_backup_path();
+        let mut backup_path = self.ensure_backup_path()?;
         backup_path.push(backup_name);
 
         if fs::exists(&backup_path)? {
@@ -63,13 +62,13 @@ impl Server {
         &self,
         backup_name: &str,
     ) -> Result<(), Box<dyn std::error::Error>> {
-        if crate::manager::process::get_status(&self.server_id) != ServerStatus::Offline {
+        if crate::manager::process::get_status(&self.server_id)? != ServerStatus::Offline {
             return Err(format!("Server is running").into());
         }
 
         let server_path = self.get_server_path();
 
-        let mut backup_path = self.ensure_backup_path();
+        let mut backup_path = self.ensure_backup_path()?;
         backup_path.push(backup_name);
 
         if fs::exists(&backup_path)? {
@@ -106,11 +105,10 @@ impl Server {
     pub fn create_backup(&self) -> Result<(), Box<dyn std::error::Error>> {
         let server_path = self.get_server_path();
 
-        let mut backup_path = self.ensure_backup_path();
+        let mut backup_path = self.ensure_backup_path()?;
         backup_path.push(
             SystemTime::now()
-                .duration_since(UNIX_EPOCH)
-                .unwrap()
+                .duration_since(UNIX_EPOCH)?
                 .as_millis()
                 .to_string()
                 + ".zip",
