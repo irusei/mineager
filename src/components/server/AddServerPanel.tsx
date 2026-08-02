@@ -47,8 +47,8 @@ export function AddServerPanel({ isOpen, onOpenChange }: AddServerPanelProps) {
         serverType,
       })) as string[];
       const newVersions = sortVersions(versions);
-      setAvailableVersions(newVersions);
-      setVersion(newVersions[newVersions.length - 1]);
+      setAvailableVersions(newVersions.reverse());
+      setVersion(newVersions[0]);
     }
 
     if (isOpen) {
