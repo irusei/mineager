@@ -111,6 +111,60 @@ export function ServerSettings({ server }: ServerSettingsProps) {
                 </div>
               </SettingContainer>
               <SettingContainer
+                name="Jar Path"
+                description={
+                  <span>
+                    Path to your Minecraft server .jar file. <br />
+                    This will be used to launch the server.
+                  </span>
+                }
+              >
+                <div className="flex gap-2">
+                  <Input
+                    type="text"
+                    placeholder="server.jar"
+                    value={settingServer.server.jar_path}
+                    onChange={(event) => {
+                      setSettingServer((oldSettingServer) => ({
+                        ...oldSettingServer,
+                        server: {
+                          ...oldSettingServer.server,
+                          jar_path: event.target.value,
+                        },
+                      }));
+                    }}
+                  />
+                  <Button
+                    className={"px-2"}
+                    onClick={async () => {
+                      const selected = await open({
+                        title: "Select Jar file",
+                        multiple: false,
+                        filters: [
+                          {
+                            name: "Jar",
+                            extensions: [".jar"],
+                          },
+                        ],
+                      });
+                      if (selected) {
+                        setSettingServer((oldSettingServer) => ({
+                          ...oldSettingServer,
+                          server: {
+                            ...oldSettingServer.server,
+                            jar_path: selected,
+                          },
+                        }));
+                      }
+                    }}
+                    color="primary"
+                  >
+                    <FolderOpen className="w-4 h-4" />
+                    <></>
+                  </Button>
+                </div>
+              </SettingContainer>
+              <SettingContainer
                 name="Launch Arguments"
                 description="Java arguments used to launch the server."
               >
@@ -161,50 +215,54 @@ export function ServerSettings({ server }: ServerSettingsProps) {
               <Trash2 className="w-4 h-4 text-red" />
               <p className="text-base font-semibold text-red">Danger Zone</p>
             </div>
-            <SettingContainer name="Server Jar" description="">
-              <Select
-                disabled={server.status === "Online"}
-                value={settingServer.server.server_type}
-                options={["Vanilla", "Paper"]}
-                setValue={(newValue) => {
-                  setSettingServer((oldSettingServer) => ({
-                    ...oldSettingServer,
-                    server: {
-                      ...oldSettingServer.server,
-                      server_type: newValue as ServerType,
-                    },
-                  }));
-                }}
-              />
-            </SettingContainer>
-            {availableVersions.length > 0 && (
-              <SettingContainer
-                name="Version"
-                description="The version of the server."
-              >
-                <Select
-                  disabled={server.status === "Online"}
-                  value={(() => {
-                    if (
-                      availableVersions.indexOf(
-                        settingServer.server.server_version,
-                      ) !== -1
-                    )
-                      return settingServer.server.server_version;
-                    return availableVersions[availableVersions.length - 1];
-                  })()}
-                  options={availableVersions}
-                  setValue={(newValue) => {
-                    setSettingServer((oldSettingServer) => ({
-                      ...oldSettingServer,
-                      server: {
-                        ...oldSettingServer.server,
-                        server_version: newValue,
-                      },
-                    }));
-                  }}
-                />
-              </SettingContainer>
+            {server.server.server_type != "Archive" && (
+              <>
+                <SettingContainer name="Server Jar" description="">
+                  <Select
+                    disabled={server.status === "Online"}
+                    value={settingServer.server.server_type}
+                    options={["Vanilla", "Paper"]}
+                    setValue={(newValue) => {
+                      setSettingServer((oldSettingServer) => ({
+                        ...oldSettingServer,
+                        server: {
+                          ...oldSettingServer.server,
+                          server_type: newValue as ServerType,
+                        },
+                      }));
+                    }}
+                  />
+                </SettingContainer>
+                {availableVersions.length > 0 && (
+                  <SettingContainer
+                    name="Version"
+                    description="The version of the server."
+                  >
+                    <Select
+                      disabled={server.status === "Online"}
+                      value={(() => {
+                        if (
+                          availableVersions.indexOf(
+                            settingServer.server.server_version,
+                          ) !== -1
+                        )
+                          return settingServer.server.server_version;
+                        return availableVersions[availableVersions.length - 1];
+                      })()}
+                      options={availableVersions}
+                      setValue={(newValue) => {
+                        setSettingServer((oldSettingServer) => ({
+                          ...oldSettingServer,
+                          server: {
+                            ...oldSettingServer.server,
+                            server_version: newValue,
+                          },
+                        }));
+                      }}
+                    />
+                  </SettingContainer>
+                )}
+              </>
             )}
             <SettingContainer
               name="Delete Server"

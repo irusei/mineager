@@ -4,17 +4,15 @@ use serde::{Deserialize, Serialize};
 use tauri::{Emitter, Manager, WindowEvent};
 
 use crate::{
-    java::detector::get_jre_version,
     manager::{
         ban::{BanEntry, IpBanEntry},
         cron,
         operators::OperatorEntry,
         process,
-        servers::{get_cloned_servers, Server},
+        servers::{get_cloned_servers, import_server, Server},
         whitelist::WhitelistEntry,
     },
     minecraft::versions::{get_paper_versions, get_vanilla_versions},
-    utils::path::sanitize_name,
 };
 
 mod java;
@@ -78,39 +76,28 @@ async fn fetch_versions(server_type: String) -> Vec<String> {
 }
 
 #[tauri::command(async)]
-async fn create_server(server_name: String, server_type: String, version: String) -> Result<(), String> {
-    // create server
-    let server_id: String = uuid::Uuid::new_v4().to_string();
-
-    // download java
-    try_emit("update-create-button-text", "Downloading Java...");
-    let jre_version = &get_jre_version(&version);
-    let java_path = jre_version
-        .download()
+async fn create_server(
+    server_name: String,
+    server_type: String,
+    version: String,
+) -> Result<(), String> {
+    crate::manager::servers::create_server(server_name, server_type, version)
         .await
-        .map(|result| result.to_string_lossy().into_owned())
-        .unwrap_or(String::from(""));
+        .map_err(|e| e.to_string())?;
 
-    let server = Server {
-        server_id,
-        server_name: sanitize_name(&server_name),
-        server_type: server_type.clone(), // avoid moving
-        server_version: version,
-        launch_args: String::from(""),
-        allocated_ram: String::from("4096M"),
-        java_path: java_path,
-        backups: Vec::new(),
-        auto_backups: false,
-        auto_backup_on_start: false,
-        auto_backup_interval: String::from("0 * * * *"),
-    };
+    update_frontend().map_err(|e| e.to_string())?;
 
-    // add server
-    server.add().map_err(|e| e.to_string())?;
+    Ok(())
+}
 
-    // install server
-    try_emit("update-create-button-text", "Installing server...");
-    server.install().await.map_err(|e| e.to_string())?;
+#[tauri::command(async)]
+async fn create_server_from_archive(
+    server_name: String,
+    archive_path: String,
+) -> Result<(), String> {
+    import_server(server_name, archive_path)
+        .await
+        .map_err(|e| e.to_string())?;
     update_frontend().map_err(|e| e.to_string())?;
 
     Ok(())
@@ -186,7 +173,9 @@ fn write_properties(server_id: &str, new_properties: &str) -> Result<(), String>
         .into_iter()
         .find(|s| s.server_id == server_id)
         .ok_or("server not found")?;
-    server.write_properties(new_properties).map_err(|e| e.to_string())?;
+    server
+        .write_properties(new_properties)
+        .map_err(|e| e.to_string())?;
     Ok(())
 }
 
@@ -266,11 +255,19 @@ async fn update_auto_backup(
 ) -> Result<(), String> {
     let servers = get_cloned_servers().map_err(|e| e.to_string())?;
     if let Some(server) = servers.iter().find(|s| s.server_id == server_id) {
-        server.set_auto_backup(enabled, interval.clone(), on_start).map_err(|e| e.to_string())?;
+        server
+            .set_auto_backup(enabled, interval.clone(), on_start)
+            .map_err(|e| e.to_string())?;
         if enabled {
-            server.add_backup_job(&interval).await.map_err(|e| e.to_string())?;
+            server
+                .add_backup_job(&interval)
+                .await
+                .map_err(|e| e.to_string())?;
         } else {
-            server.remove_backup_job().await.map_err(|e| e.to_string())?;
+            server
+                .remove_backup_job()
+                .await
+                .map_err(|e| e.to_string())?;
         }
     }
     Ok(())
@@ -493,6 +490,7 @@ pub fn run() {
             init_window_properties,
             fetch_versions,
             create_server,
+            create_server_from_archive,
             update_server,
             start_server,
             get_stdout,

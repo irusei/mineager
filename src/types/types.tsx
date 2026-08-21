@@ -1,4 +1,4 @@
-export type ServerType = "Vanilla" | "Paper";
+export type ServerType = "Vanilla" | "Paper" | "Archive";
 
 interface MinecraftServer {
   server_id: string;
@@ -7,6 +7,8 @@ interface MinecraftServer {
   server_version: string;
 
   java_path: string;
+  jar_path: string;
+
   allocated_ram: string;
   launch_args: string;
   auto_backups: boolean;

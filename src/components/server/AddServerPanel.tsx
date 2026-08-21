@@ -6,8 +6,9 @@ import Button from "../ui/Button.tsx";
 import { Input } from "../ui/Input.tsx";
 import { Select } from "../ui/Select.tsx";
 import { Modal } from "../ui/Modal.tsx";
-import { Check, X } from "lucide-react";
+import { Check, FolderOpen, X } from "lucide-react";
 import { listen } from "@tauri-apps/api/event";
+import { open } from "@tauri-apps/plugin-dialog";
 
 interface AddServerPanelProps {
   isOpen: boolean;
@@ -23,11 +24,26 @@ export function AddServerPanel({ isOpen, onOpenChange }: AddServerPanelProps) {
   const [createServerButtonTextContent, setCreateServerButtonTextContent] =
     useState<string>("Create");
 
+  // only for archive server
+  const [archivePath, setArchivePath] = useState<string>("");
+
   async function createServer() {
     if (serverName === "") return;
-    if (version === null) return;
+
+    if (serverType != "Archive") {
+      if (version === null) return;
+      await invoke("create_server", { serverName, serverType, version });
+    } else {
+      // Handle archive server
+      if (archivePath === "") return;
+      await invoke("create_server_from_archive", {
+        serverName,
+        serverType,
+        archivePath,
+      });
+    }
+
     setCreateBtnDisabled(true);
-    await invoke("create_server", { serverName, serverType, version });
     onOpenChange(false);
   }
 
@@ -52,6 +68,8 @@ export function AddServerPanel({ isOpen, onOpenChange }: AddServerPanelProps) {
     }
 
     if (isOpen) {
+      if (serverType === "Archive") setAvailableVersions([]);
+
       fetchAvailableVersions();
     }
   }, [serverType, isOpen]);
@@ -84,7 +102,9 @@ export function AddServerPanel({ isOpen, onOpenChange }: AddServerPanelProps) {
           <Button
             onClick={() => createServer()}
             disabled={
-              createBtnDisabled || serverName === "" || version === null
+              createBtnDisabled ||
+              serverName === "" ||
+              (serverType != "Archive" ? version === null : archivePath === "")
             }
             color="primary"
             className="px-6"
@@ -92,6 +112,7 @@ export function AddServerPanel({ isOpen, onOpenChange }: AddServerPanelProps) {
             <Check className="w-4 h-4" />
             <span className="text-nowrap">{createServerButtonTextContent}</span>
           </Button>
+
           <Button
             onClick={() => onOpenChange(false)}
             color="red"
@@ -120,22 +141,67 @@ export function AddServerPanel({ isOpen, onOpenChange }: AddServerPanelProps) {
               <label className="text-sm font-medium text-text">Type</label>
               <Select
                 value={serverType}
-                options={["Vanilla", "Paper"]}
+                options={["Vanilla", "Paper", "Archive"]}
                 setValue={(newValue) => setServerType(newValue as ServerType)}
               />
             </div>
 
-            {availableVersions.length > 0 && (
-              <div className="flex flex-col gap-1.5">
-                <label className="text-sm font-medium text-text">Version</label>
-                <Select
-                  value={
-                    version ?? availableVersions[availableVersions.length - 1]
-                  }
-                  options={availableVersions}
-                  setValue={(newValue) => setVersion(newValue)}
-                />
-              </div>
+            {serverType != "Archive" ? (
+              <>
+                {availableVersions.length > 0 && (
+                  <div className="flex flex-col gap-1.5">
+                    <label className="text-sm font-medium text-text">
+                      Version
+                    </label>
+                    <Select
+                      value={
+                        version ??
+                        availableVersions[availableVersions.length - 1]
+                      }
+                      options={availableVersions}
+                      setValue={(newValue) => setVersion(newValue)}
+                    />
+                  </div>
+                )}
+              </>
+            ) : (
+              <>
+                <div className="flex flex-col gap-1.5">
+                  <label className="text-sm font-medium text-text">Path</label>
+                  <div className="flex flex-col gap-y-2">
+                    <Input
+                      type="text"
+                      placeholder="C:\archive.zip"
+                      value={archivePath}
+                      onChange={(event) => {
+                        setArchivePath(event.target.value);
+                      }}
+                    />
+                    <Button
+                      className={"px-2"}
+                      onClick={async () => {
+                        const selected = await open({
+                          title: "Select Archive Path",
+                          multiple: false,
+                          filters: [
+                            {
+                              name: "Archive",
+                              extensions: ["zip"],
+                            },
+                          ],
+                        });
+                        if (selected) {
+                          setArchivePath(selected);
+                        }
+                      }}
+                      color="primary"
+                    >
+                      <FolderOpen className="w-4 h-4" />
+                      <></>
+                    </Button>
+                  </div>
+                </div>
+              </>
             )}
           </div>
         </div>

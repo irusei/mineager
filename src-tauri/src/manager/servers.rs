@@ -2,10 +2,12 @@ use serde::{Deserialize, Serialize};
 use std::fs;
 use std::fs::{File, OpenOptions};
 use std::io::{BufRead, BufReader, ErrorKind, Write};
+use std::path::PathBuf;
 use std::sync::{LazyLock, Mutex};
+use zip::ZipArchive;
 
 use crate::java::detector::get_jre_version;
-use crate::minecraft::jars;
+use crate::minecraft::{self, jars};
 use crate::utils::path::{get_core_path, sanitize_name};
 use crate::{try_emit, update_frontend};
 
@@ -25,6 +27,8 @@ pub(crate) struct Server {
     pub(crate) launch_args: String,
     pub(crate) allocated_ram: String,
     pub(crate) java_path: String,
+    #[serde(default)]
+    pub(crate) jar_path: String,
 
     // backups
     #[serde(default)]
@@ -73,13 +77,14 @@ impl Server {
         let jre_version = &get_jre_version(new_server_version);
         let java_path: String = jre_version.download().await?.to_string_lossy().to_string();
 
-        let updated = Server {
+        let mut updated = Server {
             server_id: self.server_id.clone(),
             server_name: sanitize_name(&self.server_name),
             server_type: new_server_type.to_string(),
             server_version: new_server_version.to_string(),
             launch_args: self.launch_args.clone(),
             java_path: java_path,
+            jar_path: self.jar_path.clone(),
             allocated_ram: self.allocated_ram.clone(),
             backups: self.backups.clone(),
             auto_backups: self.auto_backups,
@@ -89,9 +94,11 @@ impl Server {
 
         updated.install().await?;
 
-        let mut servers = SERVERS.lock()?;
-        if let Some(index) = servers.iter().position(|s| s.server_id == self.server_id) {
-            servers[index] = updated
+        {
+            let mut servers = SERVERS.lock()?;
+            if let Some(index) = servers.iter().position(|s| s.server_id == self.server_id) {
+                servers[index] = updated
+            }
         }
 
         save_servers()?;
@@ -122,13 +129,14 @@ impl Server {
                 .map(|result| result.to_string_lossy().into_owned())
                 .unwrap_or(String::from(""));
 
-            let updated = Server {
+            let mut updated = Server {
                 server_id: self.server_id.clone(),
                 server_name: sanitize_name(&self.server_name),
                 server_type: self.server_type.clone(),
                 server_version: self.server_version.clone(),
                 launch_args: self.launch_args.clone(),
                 java_path: java_path,
+                jar_path: self.jar_path.clone(),
                 allocated_ram: self.allocated_ram.clone(),
                 backups: self.backups.clone(),
                 auto_backups: self.auto_backups,
@@ -159,6 +167,7 @@ impl Server {
                     server_version: self.server_version.clone(),
                     launch_args: self.launch_args.clone(),
                     java_path: self.java_path.clone(),
+                    jar_path: self.jar_path.clone(),
                     allocated_ram: self.allocated_ram.clone(),
                     backups: self.backups.clone(),
                     auto_backups: self.auto_backups,
@@ -174,7 +183,7 @@ impl Server {
         Ok(())
     }
 
-    pub async fn install(&self) -> Result<(), Box<dyn std::error::Error>> {
+    pub async fn install(&mut self) -> Result<(), Box<dyn std::error::Error>> {
         let mut server_path = self.get_server_path();
 
         if !server_path.exists() {
@@ -195,6 +204,8 @@ impl Server {
             .write(true)
             .open(&server_path)?
             .write_all(&jar_file)?;
+
+        self.jar_path = server_path.to_string_lossy().to_string();
 
         Ok(())
     }
@@ -308,6 +319,17 @@ impl Server {
 
         Ok(())
     }
+
+    pub fn get_jar_file_path(&self) -> PathBuf {
+        if self.jar_path.is_empty() {
+            // Compatibility: old mineager versions didn't have a jar_path field, so should just use what it should be instead
+            let mut jar_path = self.get_server_path();
+            jar_path.push("server.jar");
+            PathBuf::from(jar_path)
+        } else {
+            PathBuf::from(&self.jar_path)
+        }
+    }
 }
 
 pub fn get_cloned_servers() -> Result<Vec<Server>, Box<dyn std::error::Error>> {
@@ -364,4 +386,216 @@ pub fn read_servers() -> Vec<Server> {
     let storage_file = File::open(path).expect("Failed to open servers.json");
 
     serde_json::from_reader(storage_file).expect("Failed to deserialize json")
+}
+
+pub async fn create_server(
+    server_name: String,
+    server_type: String,
+    version: String,
+) -> Result<(), Box<dyn std::error::Error>> {
+    // create server
+    let server_id: String = uuid::Uuid::new_v4().to_string();
+
+    // download java
+    try_emit("update-create-button-text", "Downloading Java...");
+    let jre_version = &get_jre_version(&version);
+    let java_path = jre_version
+        .download()
+        .await
+        .map(|result| result.to_string_lossy().into_owned())
+        .unwrap_or(String::from(""));
+
+    let mut server = Server {
+        server_id,
+        server_name: sanitize_name(&server_name),
+        server_type: server_type.clone(), // avoid moving
+        server_version: version,
+        launch_args: String::from(""),
+        allocated_ram: String::from("4096M"),
+        java_path: java_path,
+        jar_path: String::from("server.jar"), // changed later
+        backups: Vec::new(),
+        auto_backups: false,
+        auto_backup_on_start: false,
+        auto_backup_interval: String::from("0 * * * *"),
+    };
+
+    // install server
+    try_emit("update-create-button-text", "Installing server...");
+    server.install().await?;
+
+    // add server
+    server.add()?;
+
+    Ok(())
+}
+
+pub async fn import_server(
+    server_name: String,
+    archive_path: String,
+) -> Result<(), Box<dyn std::error::Error>> {
+    // make uuid
+    let server_id: String = uuid::Uuid::new_v4().to_string();
+
+    let mut server = Server {
+        server_id: server_id.clone(),
+        server_name: sanitize_name(&server_name),
+        server_type: String::from("Archive"),
+        server_version: String::from("Unknown"), // TODO: dedicate this to the modpack version
+        launch_args: String::from(""),
+        allocated_ram: String::from("4096M"),
+        java_path: String::from(""),
+        jar_path: String::from(""), // made later
+        backups: Vec::new(),
+        auto_backups: false,
+        auto_backup_on_start: false,
+        auto_backup_interval: String::from("0 * * * *"),
+    };
+
+    try_emit("update-create-button-text", "Extracting archive...");
+    // Install the archive
+    let zip_file = File::open(&archive_path)?;
+    let mut zip = ZipArchive::new(&zip_file)?;
+
+    zip.extract_unwrapped_root_dir(server.get_server_path(), zip::read::root_dir_common_filter)?;
+
+    // Try to detect jar file
+    let mut jar_file: Option<String> = None;
+
+    // Check forge .jar file location in libraries first
+    let mut forge_path = server.get_server_path();
+    forge_path.push("libraries/net/minecraftforge/forge");
+
+    try_emit("update-create-button-text", "Scanning archive...");
+    if forge_path.exists() {
+        let children = fs::read_dir(forge_path);
+        if let Ok(children) = children {
+            for child in children.flatten() {
+                let path = child.path();
+
+                if path.is_dir() {
+                    if let Ok(entries) = std::fs::read_dir(&path) {
+                        for entry in entries.flatten() {
+                            let entry_path = entry.path();
+
+                            if entry_path.is_file()
+                                && entry_path
+                                    .file_name()
+                                    .and_then(|name| name.to_str())
+                                    .is_some_and(|name| name.ends_with(".jar"))
+                            {
+                                jar_file = Some(entry_path.to_string_lossy().to_string());
+
+                                // this forge should have a minecraft version in the filename, so extract it and get the appropriate JRE version if possible
+                                // TODO: should also figure out how to do this for other server types
+                                let jar_filename = entry_path
+                                    .file_name()
+                                    .unwrap()
+                                    .to_string_lossy()
+                                    .to_string();
+
+                                if let Some(version_with_suffix) =
+                                    jar_filename.strip_prefix("forge-")
+                                {
+                                    // now, we're looking at "minecraft_version-forge_version-universal or -server.jar"
+                                    // should split the - one more time if exists?
+                                    let mut split = version_with_suffix.split("-");
+                                    if split.clone().count() > 1 {
+                                        // - was found
+                                        let mc_version = split.next();
+
+                                        if let Some(mc_version) = mc_version {
+                                            // try to download java
+                                            try_emit(
+                                                "update-create-button-text",
+                                                "Downloading Java...",
+                                            );
+                                            let jre_version = &get_jre_version(&mc_version);
+                                            let java_path = jre_version
+                                                .download()
+                                                .await
+                                                .map(|result| result.to_string_lossy().into_owned())
+                                                .unwrap_or(String::from(""));
+
+                                            server.java_path = java_path;
+                                        }
+                                    }
+                                }
+
+                                break;
+                            }
+                        }
+                    }
+                }
+
+                // skip remaining if already set
+                if jar_file.is_some() {
+                    break;
+                }
+            }
+        }
+    }
+
+    // Scan main server directory for any .jar files if still missing
+    // Prioritize forge if exists
+    if jar_file.is_none() {
+        let server_path = server.get_server_path();
+        let children = fs::read_dir(server_path);
+
+        if let Ok(children) = children {
+            let mut fallback_jar: Option<String> = None;
+
+            for child in children.flatten() {
+                let path = child.path();
+
+                if path.is_file() {
+                    // TODO: fabric support idk probably
+                    // Move forge to jar_file, and then scan other possible jars (that aren't -installer.jar) and put them in fallback_jar.
+                    // When forge isn't found, switch jar_file to fallback_jar
+                    if path
+                        .file_name()
+                        .and_then(|name| name.to_str())
+                        .is_some_and(|name| {
+                            name.starts_with("forge")
+                                && !name.ends_with("-installer.jar")
+                                && name.ends_with(".jar")
+                        })
+                    {
+                        jar_file = Some(path.to_string_lossy().to_string());
+                        break;
+                    }
+
+                    if path
+                        .file_name()
+                        .and_then(|name| name.to_str())
+                        .is_some_and(|name| {
+                            !name.ends_with("-installer.jar") && name.ends_with(".jar")
+                        })
+                    {
+                        fallback_jar = Some(path.to_string_lossy().to_string());
+                        break;
+                    }
+                }
+            }
+
+            // Move fallback_jar to jar_file if it isn't set
+            if jar_file.is_none() {
+                jar_file = fallback_jar;
+            }
+        }
+    }
+
+    // Check if minecraft_server.jar exists and prioritize it instead (Default .jar for many forge modpacks on like 1.12.2)
+    let mut minecraft_server_jar_path = server.get_server_path();
+    minecraft_server_jar_path.push("minecraft_server.jar");
+
+    if minecraft_server_jar_path.exists() {
+        jar_file = Some(minecraft_server_jar_path.to_string_lossy().to_string());
+    }
+
+    server.jar_path = jar_file.unwrap_or(String::from(""));
+    // Add server
+    server.add()?;
+
+    Ok(())
 }

@@ -28,7 +28,7 @@ impl Server {
     pub fn ensure_backup_path(&self) -> Result<PathBuf, Box<dyn std::error::Error>> {
         let mut path = get_core_path();
         path.push("backups");
-        path.push(self.server_name.clone());
+        path.push(self.server_id.clone());
         fs::create_dir_all(&path)?;
         Ok(path)
     }
@@ -89,6 +89,7 @@ impl Server {
             let backup_metadata_file = File::open(&metadata_file)?;
             let backup_metadata: BackupMetadata = serde_json::from_reader(backup_metadata_file)?;
 
+            // reinstall the server
             self.change_server_details(
                 &backup_metadata.server_type,
                 &backup_metadata.server_version,
@@ -118,34 +119,49 @@ impl Server {
         let mut zip = ZipWriter::new(new_zip_file);
 
         let options = FileOptions::default().compression_method(CompressionMethod::Deflated);
+        let jar_path = self.get_jar_file_path();
 
         fn zip_dir(
             root: &std::path::Path,
             dir: &std::path::Path,
             zip: &mut ZipWriter<File>,
+            jar_path: &PathBuf,
             options: zip::write::FileOptions<'static, ()>,
         ) -> Result<(), Box<dyn std::error::Error>> {
+            let is_forge: bool = jar_path
+                .file_name()
+                .map(|name| name.to_string_lossy().to_string().contains("forge"))
+                .unwrap_or(false);
+
             for entry in fs::read_dir(dir)? {
                 let entry = entry?;
                 let path = entry.path();
                 let relative = path.strip_prefix(root).map_err(|e| e.to_string())?;
 
-                if let Some(name) = path.file_name() {
-                    let name_str = name.to_string_lossy();
-                    if name_str == "server.jar" {
-                        continue;
-                    }
-                    if path.strip_prefix(root).map_or(false, |p| {
-                        p.starts_with("libraries") || p.starts_with("versions")
-                    }) {
-                        continue;
-                    }
+                // Skip .jar
+                if &path == jar_path {
+                    continue;
+                }
+
+                if path.strip_prefix(root).map_or(false, |p| {
+                    p.starts_with("versions") || p.starts_with("cache")
+                }) {
+                    continue;
+                }
+
+                // Also skip "libraries" folder if we're not dealing with Forge
+                if !is_forge
+                    && path
+                        .strip_prefix(root)
+                        .map_or(false, |p| p.starts_with("libraries"))
+                {
+                    continue;
                 }
 
                 let metadata = fs::metadata(&path)?;
                 if metadata.is_dir() {
                     zip.add_directory(relative.to_string_lossy().into_owned(), options)?;
-                    zip_dir(root, &path, zip, options)?;
+                    zip_dir(root, &path, zip, jar_path, options)?;
                 } else {
                     match File::open(&path) {
                         Ok(mut file) => {
@@ -173,7 +189,7 @@ impl Server {
         zip.start_file("backup_metadata.json", options)?;
         zip.write_all(metadata_json.as_bytes())?;
 
-        zip_dir(&server_path, &server_path, &mut zip, options)?;
+        zip_dir(&server_path, &server_path, &mut zip, &jar_path, options)?;
 
         zip.finish()?;
         Ok(())

@@ -14,9 +14,11 @@ pub enum ServerStatus {
     Offline,
 }
 
+#[derive(Clone)]
 struct ServerProcess {
     stdin: Arc<Mutex<ChildStdin>>,
     stdout: Vec<String>,
+    pid: u32,
     // child: Arc<Mutex<std::process::Child>>
 }
 
@@ -48,11 +50,13 @@ pub fn start_server(server_id: &str) -> Result<(), Box<dyn std::error::Error>> {
             return Err(format!("Server is already running").into());
         }
 
-        let jar_path = server.get_server_path();
-        let mut jar_full = jar_path.clone();
-        jar_full.push("server.jar");
+        let server_path = server.get_server_path();
+        let jar_full = server.get_jar_file_path();
+        let is_forge = jar_full.to_string_lossy().to_string().contains("forge");
 
-        if !fs::metadata(&jar_full).is_ok() {
+        if !is_forge
+            && (!jar_full.exists() || !jar_full.is_file() || !fs::metadata(&jar_full).is_ok())
+        {
             return Err(format!("Server JAR not found at {:?}", jar_full).into());
         }
 
@@ -61,15 +65,38 @@ pub fn start_server(server_id: &str) -> Result<(), Box<dyn std::error::Error>> {
         let mut config = Command::new(program_path);
 
         config
-            .current_dir(jar_path)
+            .current_dir(server_path)
             .stdin(Stdio::piped())
             .stdout(Stdio::piped())
             .stderr(Stdio::piped())
             .arg(format!("-Xmx{}", &server.allocated_ram))
-            .args(server.launch_args.split_whitespace())
-            .arg("-jar")
-            .arg("server.jar")
-            .arg("nogui");
+            .args(server.launch_args.split_whitespace());
+
+        if !is_forge {
+            config
+                .arg("-jar")
+                .arg(jar_full) // we know it's a file
+                .arg("nogui");
+        } else {
+            // when we're dealing with a forge .jars it should just be ignored IF there's a unix_args.txt or win_args.txt file in the same directory as the .jar
+            // this probably shouldn't be this hacky but whatever
+            #[cfg(windows)]
+            let arg_file = "win_args.txt";
+            #[cfg(unix)]
+            let arg_file = "unix_args.txt";
+
+            let mut arg_file_path = jar_full.clone();
+            arg_file_path.pop();
+            arg_file_path.push(arg_file);
+
+            if arg_file_path.exists() {
+                config.arg(format!("@{}", arg_file_path.to_string_lossy().to_string()));
+                config.arg("nogui");
+            } else {
+                // whatever
+                config.arg("-jar").arg(jar_full).arg("nogui");
+            }
+        }
 
         // create no window on windows
         #[cfg(windows)]
@@ -84,12 +111,15 @@ pub fn start_server(server_id: &str) -> Result<(), Box<dyn std::error::Error>> {
         let stdin = Arc::new(Mutex::new(child.stdin.take().unwrap()));
         let stdout = child.stdout.take().unwrap();
         let stderr: ChildStderr = child.stderr.take().unwrap();
+
+        let pid = child.id();
+
         let child_arc = Arc::new(Mutex::new(child));
 
         let server_process = ServerProcess {
             stdin,
             stdout: Vec::new(),
-            // child: child_arc.clone(),
+            pid,
         };
 
         // Add process to hashmap
@@ -219,14 +249,30 @@ pub fn write_stdin(server_id: &str, string: &str) -> Result<(), Box<dyn std::err
     Ok(())
 }
 
-pub fn stop_all_servers() -> Result<(), Box<dyn std::error::Error>> {
-    let server_ids: Vec<String> = {
-        let locked_processes = SERVER_PROCESS_HASHMAP.lock()?;
-        locked_processes.keys().cloned().collect()
-    };
+pub fn get_all_pids() -> Result<Vec<u32>, Box<dyn std::error::Error>> {
+    let pids = SERVER_PROCESS_HASHMAP
+        .lock()?
+        .clone()
+        .values()
+        .map(|p| p.pid)
+        .collect::<Vec<u32>>();
 
-    for server_id in server_ids {
-        write_stdin(&server_id, "stop")?;
+    Ok(pids)
+}
+pub fn stop_all_servers() -> Result<(), Box<dyn std::error::Error>> {
+    let pids = get_all_pids()?
+        .iter()
+        .map(|pid| sysinfo::Pid::from_u32(*pid))
+        .collect::<Vec<sysinfo::Pid>>();
+
+    let mut system = sysinfo::System::new();
+
+    system.refresh_processes(sysinfo::ProcessesToUpdate::Some(&pids), true);
+
+    for pid in pids {
+        if let Some(process) = system.process(pid) {
+            process.kill();
+        }
     }
 
     Ok(())
