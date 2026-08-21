@@ -72,6 +72,22 @@ pub fn start_server(server_id: &str) -> Result<(), Box<dyn std::error::Error>> {
             .arg(format!("-Xmx{}", &server.allocated_ram))
             .args(server.launch_args.split_whitespace());
 
+        // Special Java arguments for GTNH .jar files
+        let arg_files = vec!["java9args.txt"];
+
+        for arg_file in arg_files {
+            let mut arg_file_path = server.get_server_path();
+            arg_file_path.push(arg_file);
+
+            if arg_file_path.exists() {
+                let buf: Vec<u8> = fs::read(arg_file_path)?;
+                let args: String = String::from_utf8(buf)?;
+
+                println!("{}", args);
+                config.args(args.split_whitespace());
+            }
+        }
+
         if !is_forge {
             config
                 .arg("-jar")

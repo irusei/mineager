@@ -6,8 +6,8 @@ use std::path::PathBuf;
 use std::sync::{LazyLock, Mutex};
 use zip::ZipArchive;
 
-use crate::java::detector::get_jre_version;
-use crate::minecraft::{self, jars};
+use crate::java::detector::{get_jre_version, JreVersion};
+use crate::minecraft::jars;
 use crate::utils::path::{get_core_path, sanitize_name};
 use crate::{try_emit, update_frontend};
 
@@ -537,6 +537,25 @@ pub async fn import_server(
     }
 
     // Scan main server directory for any .jar files if still missing
+
+    // Check for GTNH lwjgl3fy forgePatches .jar
+    let mut lwjgl3fy_path = server.get_server_path();
+    lwjgl3fy_path.push("lwjgl3ify-forgePatches.jar");
+
+    if lwjgl3fy_path.exists() {
+        jar_file = Some(lwjgl3fy_path.to_string_lossy().to_string());
+
+        // Server should use Java 25
+        try_emit("update-create-button-text", "Downloading Java...");
+        let java_path = JreVersion::Java25
+            .download()
+            .await
+            .map(|result| result.to_string_lossy().into_owned())
+            .unwrap_or(String::from(""));
+
+        server.java_path = java_path;
+    }
+
     // Prioritize forge if exists
     if jar_file.is_none() {
         let server_path = server.get_server_path();
@@ -549,31 +568,22 @@ pub async fn import_server(
                 let path = child.path();
 
                 if path.is_file() {
-                    // TODO: fabric support idk probably
-                    // Move forge to jar_file, and then scan other possible jars (that aren't -installer.jar) and put them in fallback_jar.
-                    // When forge isn't found, switch jar_file to fallback_jar
-                    if path
-                        .file_name()
-                        .and_then(|name| name.to_str())
-                        .is_some_and(|name| {
-                            name.starts_with("forge")
-                                && !name.ends_with("-installer.jar")
-                                && name.ends_with(".jar")
-                        })
-                    {
-                        jar_file = Some(path.to_string_lossy().to_string());
-                        break;
-                    }
+                    if let Some(filename) = path.file_name().and_then(|name| name.to_str()) {
+                        // TODO: fabric support idk probably
+                        // Move forge to jar_file, and then scan other possible jars (that aren't -installer.jar) and put them in fallback_jar.
+                        // When forge isn't found, switch jar_file to fallback_jar
+                        if filename.starts_with("forge")
+                            && !filename.ends_with("-installer.jar")
+                            && filename.ends_with(".jar")
+                        {
+                            jar_file = Some(path.to_string_lossy().to_string());
+                            break;
+                        }
 
-                    if path
-                        .file_name()
-                        .and_then(|name| name.to_str())
-                        .is_some_and(|name| {
-                            !name.ends_with("-installer.jar") && name.ends_with(".jar")
-                        })
-                    {
-                        fallback_jar = Some(path.to_string_lossy().to_string());
-                        break;
+                        // Default fallback jar
+                        if !filename.ends_with("-installer.jar") && filename.ends_with(".jar") {
+                            fallback_jar = Some(path.to_string_lossy().to_string());
+                        }
                     }
                 }
             }
