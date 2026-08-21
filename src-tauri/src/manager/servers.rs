@@ -215,6 +215,7 @@ impl Server {
         eula_path.push("eula.txt");
 
         let mut eula_file = OpenOptions::new()
+            .create(true)
             .write(true)
             .truncate(true)
             .open(eula_path)
@@ -223,6 +224,20 @@ impl Server {
         eula_file
             .write_all(format!("eula={}", accepted).as_bytes())
             .expect("Cannot write to eula.txt");
+    }
+
+    pub fn get_eula_accepted(&self) -> Result<bool, Box<dyn std::error::Error>> {
+        let mut eula_path = self.get_server_path();
+        eula_path.push("eula.txt");
+
+        if !eula_path.exists() {
+            return Ok(false);
+        }
+
+        let buf: Vec<u8> = fs::read(eula_path)?;
+        let eula_content: String = String::from_utf8(buf)?;
+
+        Ok(eula_content.to_lowercase().contains("eula=true"))
     }
 
     pub fn read_properties_lines(&self) -> Result<Vec<String>, Box<dyn std::error::Error>> {

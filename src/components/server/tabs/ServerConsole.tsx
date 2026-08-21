@@ -32,6 +32,7 @@ export function ServerConsole({
   const [shouldScroll, setShouldScroll] = useState<boolean>(false);
   const [eulaVisible, setEulaVisible] = useState<boolean>(false);
   const [consoleSearch, setConsoleSearch] = useState<string>("");
+  const [eulaAccepted, setEulaAccepted] = useState<boolean>(true); // default to true so it doesn't spam, set to false later
 
   function shouldScrollToBottom() {
     const consoleDiv: HTMLDivElement | null = consoleRef.current;
@@ -91,6 +92,15 @@ export function ServerConsole({
 
     return elements;
   }
+
+  function startServerWithEula() {
+    if (eulaAccepted) {
+      startServer();
+    } else {
+      setEulaVisible(true);
+    }
+  }
+
   function fetchConsole() {
     if (server.status === "Online") {
       invoke("get_stdout", { serverId: server.server.server_id }).then(
@@ -118,6 +128,12 @@ export function ServerConsole({
       }
     });
 
+    invoke("get_eula_accepted", { serverId: server.server.server_id }).then(
+      (res) => {
+        let eula = res as boolean;
+        setEulaAccepted(eula);
+      },
+    );
     setConsoleOutput(["Server offline"]);
     fetchConsole(); // refresh console on server change
 
@@ -127,13 +143,6 @@ export function ServerConsole({
   }, [server.server.server_id]);
 
   useEffect(() => {
-    if (
-      consoleOutput.length > 0 &&
-      consoleOutput[consoleOutput.length - 1].includes("eula.txt")
-    ) {
-      setEulaVisible(true);
-    }
-
     // The world if react was decent and I could just hook this into the listen normally without stupid userefs
     updateFilter(consoleOutput);
   }, [consoleOutput]);
@@ -149,6 +158,7 @@ export function ServerConsole({
 
   async function acceptEula() {
     setEulaVisible(false);
+    setEulaAccepted(true);
     await invoke("set_eula_accepted", {
       serverId: server.server.server_id,
       accepted: true,
@@ -195,7 +205,7 @@ export function ServerConsole({
             </div>
             {server.status === "Offline" ? (
               <button
-                onClick={startServer}
+                onClick={startServerWithEula}
                 className="h-8 px-3 rounded-lg bg-mauve text-crust text-sm font-medium hover:bg-mauve/90 transition-colors flex items-center gap-2"
               >
                 <Play className="w-4 h-4" />

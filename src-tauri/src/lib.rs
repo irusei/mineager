@@ -134,6 +134,22 @@ fn get_stdout(server_id: &str) -> Vec<String> {
 }
 
 #[tauri::command(async)]
+fn get_eula_accepted(server_id: &str) -> Result<bool, String> {
+    let servers = get_cloned_servers();
+
+    if let Ok(servers) = servers {
+        let server = servers
+            .into_iter()
+            .find(|s| s.server_id == server_id)
+            .expect("server not found");
+
+        return server.get_eula_accepted().map_err(|e| e.to_string());
+    }
+
+    Ok(false)
+}
+
+#[tauri::command(async)]
 fn set_eula_accepted(server_id: &str, accepted: bool) {
     let servers = get_cloned_servers();
 
@@ -494,6 +510,7 @@ pub fn run() {
             update_server,
             start_server,
             get_stdout,
+            get_eula_accepted,
             set_eula_accepted,
             write_stdin,
             read_properties_lines,
