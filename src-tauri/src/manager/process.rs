@@ -83,7 +83,6 @@ pub fn start_server(server_id: &str) -> Result<(), Box<dyn std::error::Error>> {
                 let buf: Vec<u8> = fs::read(arg_file_path)?;
                 let args: String = String::from_utf8(buf)?;
 
-                println!("{}", args);
                 config.args(args.split_whitespace());
             }
         }
