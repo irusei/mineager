@@ -126,6 +126,7 @@ impl Server {
             dir: &std::path::Path,
             zip: &mut ZipWriter<File>,
             jar_path: &PathBuf,
+            should_skip_jar: bool,
             options: zip::write::FileOptions<'static, ()>,
         ) -> Result<(), Box<dyn std::error::Error>> {
             let is_forge: bool = jar_path
@@ -139,12 +140,12 @@ impl Server {
                 let relative = path.strip_prefix(root).map_err(|e| e.to_string())?;
 
                 // Skip .jar
-                if &path == jar_path {
+                if &path == jar_path && should_skip_jar {
                     continue;
                 }
 
                 if path.strip_prefix(root).map_or(false, |p| {
-                    p.starts_with("versions") || p.starts_with("cache")
+                    p.starts_with("versions") || p.starts_with("cache") || p.starts_with("backups")
                 }) {
                     continue;
                 }
@@ -161,7 +162,7 @@ impl Server {
                 let metadata = fs::metadata(&path)?;
                 if metadata.is_dir() {
                     zip.add_directory(relative.to_string_lossy().into_owned(), options)?;
-                    zip_dir(root, &path, zip, jar_path, options)?;
+                    zip_dir(root, &path, zip, jar_path, should_skip_jar, options)?;
                 } else {
                     match File::open(&path) {
                         Ok(mut file) => {
@@ -189,7 +190,14 @@ impl Server {
         zip.start_file("backup_metadata.json", options)?;
         zip.write_all(metadata_json.as_bytes())?;
 
-        zip_dir(&server_path, &server_path, &mut zip, &jar_path, options)?;
+        zip_dir(
+            &server_path,
+            &server_path,
+            &mut zip,
+            &jar_path,
+            self.server_type != "Archive",
+            options,
+        )?;
 
         zip.finish()?;
         Ok(())
