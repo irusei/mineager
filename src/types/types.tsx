@@ -11,6 +11,18 @@ interface MinecraftServer {
 
   allocated_ram: string;
   launch_args: string;
+  backups: Backup[];
+  backup_settings: BackupSettings;
+}
+
+export interface Backup {
+  file_name: string;
+  server_type: string;
+  server_version: string;
+  size: number;
+}
+
+interface BackupSettings {
   auto_backups: boolean;
   auto_backup_on_start: boolean;
   auto_backup_interval: string;

@@ -1,5 +1,5 @@
-import { useEffect, useState } from "react";
-import { FrontendServer } from "../../../types/types.tsx";
+import { useEffect, useRef, useState } from "react";
+import { Backup, FrontendServer } from "../../../types/types.tsx";
 import { invoke } from "@tauri-apps/api/core";
 import {
   FolderArchive,
@@ -19,78 +19,50 @@ interface ServerBackupsProps {
   server: FrontendServer;
 }
 
-interface BackupEntry {
-  name: string;
-  size: number;
-}
-
 export function ServerBackups({ server }: ServerBackupsProps) {
-  const [backups, setBackups] = useState<BackupEntry[]>([]);
   const [showLoading, setShowLoading] = useState(false);
-  const [showDeleteModal, setShowDeleteModal] = useState<string | null>(null);
-  const [showRestoreModal, setShowRestoreModal] = useState<string | null>(null);
-  const [autoBackups, setAutoBackups] = useState(server.server.auto_backups);
-  const [cronInterval, setCronInterval] = useState(
-    server.server.auto_backup_interval,
-  );
-  const [backupOnStart, setBackupOnStart] = useState(
-    server.server.auto_backup_on_start,
+  const [showDeleteModal, setShowDeleteModal] = useState<boolean>(false);
+  const [showRestoreModal, setShowRestoreModal] = useState<boolean>(false);
+  const [selectedBackup, setSelectedBackup] = useState<Backup | null>(null);
+  const [tmpIntervalInputText, setTmpIntervalInputText] = useState<string>(
+    server.server.backup_settings.auto_backup_interval,
   );
 
-  async function loadBackups() {
-    const result = (await invoke("get_backups", {
+  const [backupSettings, setBackupSettings] = useState(
+    server.server.backup_settings,
+  );
+
+  // send backup settings to backend on change
+  useEffect(() => {
+    invoke("update_auto_backup", {
       serverId: server.server.server_id,
-    })) as BackupEntry[];
-    setBackups(result);
-  }
+      settings: backupSettings,
+    });
+
+    setTmpIntervalInputText(backupSettings.auto_backup_interval);
+  }, [backupSettings]);
+
+  useEffect(() => {
+    setBackupSettings(server.server.backup_settings);
+  }, [server.server.server_id]);
 
   async function createBackup() {
     setShowLoading(true);
     await invoke("create_backup", { serverId: server.server.server_id });
-    await loadBackups();
     setShowLoading(false);
-  }
-
-  async function updateCron() {
-    await invoke("update_auto_backup", {
-      serverId: server.server.server_id,
-      enabled: autoBackups,
-      interval: cronInterval,
-      onStart: backupOnStart,
-    });
-  }
-
-  async function updateAutoBackup() {
-    let newAutoBackup = !autoBackups;
-    await invoke("update_auto_backup", {
-      serverId: server.server.server_id,
-      enabled: newAutoBackup,
-      interval: cronInterval,
-      onStart: backupOnStart,
-    });
-
-    setAutoBackups(newAutoBackup);
-  }
-
-  async function updateBackupOnStart() {
-    let newBackupOnStart = !backupOnStart;
-    await invoke("update_auto_backup", {
-      serverId: server.server.server_id,
-      enabled: autoBackups,
-      interval: cronInterval,
-      onStart: newBackupOnStart,
-    });
-    setBackupOnStart(newBackupOnStart);
   }
 
   async function doDeleteBackup() {
     if (!showDeleteModal) return;
+    if (!selectedBackup) return;
+
     await invoke("delete_backup", {
       serverId: server.server.server_id,
-      backupName: showDeleteModal,
+      backup: selectedBackup,
     });
-    setShowDeleteModal(null);
-    await loadBackups();
+
+    setSelectedBackup(null);
+    setShowDeleteModal(false);
   }
 
   async function openBackupFolder() {
@@ -99,14 +71,17 @@ export function ServerBackups({ server }: ServerBackupsProps) {
 
   async function doRestoreBackup() {
     if (!showRestoreModal) return;
+    if (!selectedBackup) return;
+
+    setShowRestoreModal(false);
     setShowLoading(true);
-    setShowRestoreModal(null);
     await invoke("restore_backup", {
       serverId: server.server.server_id,
-      backupName: showRestoreModal,
+      backup: selectedBackup,
     });
+
+    setSelectedBackup(null);
     setShowLoading(false);
-    await loadBackups();
   }
 
   function formatBackupDate(filename: string): string {
@@ -124,14 +99,6 @@ export function ServerBackups({ server }: ServerBackupsProps) {
     if (bytes < GB) return (bytes / MB).toFixed(1) + " MB";
     return (bytes / GB).toFixed(2) + " GB";
   }
-
-  useEffect(() => {
-    loadBackups();
-
-    setAutoBackups(server.server.auto_backups);
-    setBackupOnStart(server.server.auto_backup_on_start);
-    setCronInterval(server.server.auto_backup_interval);
-  }, [server.server.server_id]);
 
   return (
     <div className="flex-1 min-h-120 max-h-120 bg-bg-2 flex flex-col">
@@ -160,7 +127,15 @@ export function ServerBackups({ server }: ServerBackupsProps) {
             description="Create a backup automatically every time the server starts."
           >
             <div className="flex items-center gap-3">
-              <Switch checked={backupOnStart} onChecked={updateBackupOnStart} />
+              <Switch
+                checked={backupSettings.auto_backup_on_start}
+                onChecked={(checked) =>
+                  setBackupSettings({
+                    ...backupSettings,
+                    auto_backup_on_start: checked,
+                  })
+                }
+              />
             </div>
           </SettingContainer>
           <SettingContainer
@@ -168,10 +143,18 @@ export function ServerBackups({ server }: ServerBackupsProps) {
             description="Automatically backup the server at a set interval."
           >
             <div className="flex items-center gap-3">
-              <Switch checked={autoBackups} onChecked={updateAutoBackup} />
+              <Switch
+                checked={backupSettings.auto_backups}
+                onChecked={(checked) => {
+                  setBackupSettings({
+                    ...backupSettings,
+                    auto_backups: checked,
+                  });
+                }}
+              />
             </div>
           </SettingContainer>
-          {autoBackups && (
+          {backupSettings.auto_backups && (
             <div className="mt-2">
               <SettingContainer
                 name="Backup Interval"
@@ -181,9 +164,14 @@ export function ServerBackups({ server }: ServerBackupsProps) {
                   <Input
                     type="text"
                     placeholder="0 0 * * * *"
-                    value={cronInterval}
-                    onChange={(e) => setCronInterval(e.target.value)}
-                    onBlur={updateCron}
+                    value={tmpIntervalInputText}
+                    onChange={(e) => setTmpIntervalInputText(e.target.value)}
+                    onBlur={(event) => {
+                      setBackupSettings({
+                        ...backupSettings,
+                        auto_backup_interval: event.target.value,
+                      });
+                    }}
                     className="flex-1"
                   />
                 </div>
@@ -206,22 +194,22 @@ export function ServerBackups({ server }: ServerBackupsProps) {
           </Button>
         </div>
         <div className="flex-1 space-y-2">
-          {backups.length === 0 && (
+          {server.server.backups.length === 0 && (
             <p className="text-text-2 text-sm text-center py-4">
               No backups yet
             </p>
           )}
-          {backups.map((backup) => (
+          {server.server.backups.map((backup) => (
             <div
-              key={backup.name}
+              key={backup.file_name}
               className={`flex flex-row items-center justify-between bg-bg-1 border border-border rounded-lg p-3`}
             >
               <div className="flex flex-col">
                 <span className="text-sm text-text">
-                  {formatBackupDate(backup.name)}
+                  {formatBackupDate(backup.file_name)}
                 </span>
                 <span className="text-xs text-text-2 font-mono">
-                  {backup.name}
+                  {backup.file_name}
                 </span>
                 <span className="text-xs text-text-2">
                   {formatSize(backup.size)}
@@ -229,7 +217,10 @@ export function ServerBackups({ server }: ServerBackupsProps) {
               </div>
               <div className="flex flex-row gap-2">
                 <Button
-                  onClick={() => setShowRestoreModal(backup.name)}
+                  onClick={() => {
+                    setSelectedBackup(backup);
+                    setShowRestoreModal(true);
+                  }}
                   disabled={server.status === "Online"}
                   color="primary"
                   className="w-auto py-1.5 px-3 gap-1"
@@ -238,7 +229,10 @@ export function ServerBackups({ server }: ServerBackupsProps) {
                   <span className="text-xs">Restore</span>
                 </Button>
                 <Button
-                  onClick={() => setShowDeleteModal(backup.name)}
+                  onClick={() => {
+                    setSelectedBackup(backup);
+                    setShowDeleteModal(true);
+                  }}
                   color="red"
                   className="w-auto py-1.5 px-3 gap-1"
                 >
@@ -255,20 +249,20 @@ export function ServerBackups({ server }: ServerBackupsProps) {
           </div>
         )}
         <ConfirmModal
-          isOpen={showDeleteModal !== null}
-          onClose={() => setShowDeleteModal(null)}
+          isOpen={showDeleteModal}
+          onClose={() => setShowDeleteModal(false)}
           title="Delete Backup"
-          description={`Are you sure you want to delete ${showDeleteModal || ""}?`}
+          description={`Are you sure you want to delete ${selectedBackup?.file_name}?`}
           confirmText="Delete"
           onConfirm={doDeleteBackup}
           confirmColor="primary"
           cancelText="Cancel"
         />
         <ConfirmModal
-          isOpen={showRestoreModal !== null}
-          onClose={() => setShowRestoreModal(null)}
+          isOpen={showRestoreModal}
+          onClose={() => setShowRestoreModal(false)}
           title="Restore Backup"
-          description={`Restore from ${showRestoreModal || ""}? This will overwrite the current server data.`}
+          description={`Restore from ${selectedBackup?.file_name}? This will overwrite the current server data.`}
           confirmText="Restore"
           onConfirm={doRestoreBackup}
           confirmColor="primary"

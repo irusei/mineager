@@ -3,20 +3,17 @@ use std::fs;
 use std::fs::{File, OpenOptions};
 use std::io::{BufRead, BufReader, ErrorKind, Write};
 use std::path::PathBuf;
-use std::sync::{LazyLock, Mutex};
+use std::sync::{LazyLock, Mutex, MutexGuard};
 use zip::ZipArchive;
 
 use crate::java::detector::{get_jre_version, JreVersion};
+use crate::manager::backups::{Backup, BackupSettings};
 use crate::minecraft::jars;
 use crate::utils::path::{get_core_path, sanitize_name};
 use crate::{try_emit, update_frontend};
 
 const SERVER_STORAGE_FILE: &str = "servers.json";
 static SERVERS: LazyLock<Mutex<Vec<Server>>> = LazyLock::new(|| Mutex::new(read_servers()));
-
-fn default_auto_backup_interval() -> String {
-    "0 0 * * * *".to_string()
-}
 
 #[derive(Deserialize, Serialize, Clone)]
 pub(crate) struct Server {
@@ -32,13 +29,9 @@ pub(crate) struct Server {
 
     // backups
     #[serde(default)]
-    pub(crate) backups: Vec<String>,
+    pub(crate) backups: Vec<Backup>,
     #[serde(default)]
-    pub(crate) auto_backups: bool,
-    #[serde(default)]
-    pub(crate) auto_backup_on_start: bool,
-    #[serde(default = "default_auto_backup_interval")]
-    pub(crate) auto_backup_interval: String, // crontab notation
+    pub(crate) backup_settings: BackupSettings,
 }
 
 impl Server {
@@ -48,7 +41,6 @@ impl Server {
             servers.push(self.clone());
         }
         save_servers()?;
-        update_frontend()?;
 
         Ok(())
     }
@@ -64,7 +56,6 @@ impl Server {
             self.clean_server_directory()?;
         }
         save_servers()?;
-        update_frontend()?;
 
         Ok(())
     }
@@ -87,9 +78,7 @@ impl Server {
             jar_path: self.jar_path.clone(),
             allocated_ram: self.allocated_ram.clone(),
             backups: self.backups.clone(),
-            auto_backups: self.auto_backups,
-            auto_backup_on_start: self.auto_backup_on_start,
-            auto_backup_interval: self.auto_backup_interval.clone(),
+            backup_settings: self.backup_settings.clone(),
         };
 
         updated.install().await?;
@@ -102,7 +91,6 @@ impl Server {
         }
 
         save_servers()?;
-        update_frontend()?;
 
         Ok(())
     }
@@ -139,9 +127,7 @@ impl Server {
                 jar_path: self.jar_path.clone(),
                 allocated_ram: self.allocated_ram.clone(),
                 backups: self.backups.clone(),
-                auto_backups: self.auto_backups,
-                auto_backup_on_start: self.auto_backup_on_start,
-                auto_backup_interval: self.auto_backup_interval.clone(),
+                backup_settings: self.backup_settings.clone(),
             };
 
             {
@@ -170,15 +156,12 @@ impl Server {
                     jar_path: self.jar_path.clone(),
                     allocated_ram: self.allocated_ram.clone(),
                     backups: self.backups.clone(),
-                    auto_backups: self.auto_backups,
-                    auto_backup_on_start: self.auto_backup_on_start,
-                    auto_backup_interval: self.auto_backup_interval.clone(),
+                    backup_settings: self.backup_settings.clone(),
                 };
             }
         }
 
         save_servers()?;
-        update_frontend()?;
 
         Ok(())
     }
@@ -313,24 +296,19 @@ impl Server {
         Ok(())
     }
 
-    pub fn set_auto_backup(
+    pub fn set_backup_settings(
         &self,
-        enabled: bool,
-        interval: String,
-        on_start: bool,
+        settings: &BackupSettings,
     ) -> Result<(), Box<dyn std::error::Error>> {
         {
             let mut servers = SERVERS.lock()?;
             if let Some(index) = servers.iter().position(|s| s.server_id == self.server_id) {
                 let mut server = servers[index].clone();
-                server.auto_backups = enabled;
-                server.auto_backup_interval = interval;
-                server.auto_backup_on_start = on_start;
+                server.backup_settings = settings.clone();
                 servers[index] = server;
             }
         }
         save_servers()?;
-        update_frontend()?;
 
         Ok(())
     }
@@ -350,6 +328,10 @@ impl Server {
 pub fn get_cloned_servers() -> Result<Vec<Server>, Box<dyn std::error::Error>> {
     let locked_servers = SERVERS.lock()?;
     Ok(locked_servers.clone())
+}
+
+pub fn get_servers_mut() -> Result<MutexGuard<'static, Vec<Server>>, Box<dyn std::error::Error>> {
+    Ok(SERVERS.lock()?)
 }
 
 pub fn ensure_file() {
@@ -389,6 +371,8 @@ pub fn save_servers() -> Result<(), Box<dyn std::error::Error>> {
     storage_file
         .write_all(json.as_bytes())
         .expect("Failed to write json");
+
+    update_frontend()?;
 
     Ok(())
 }
@@ -430,9 +414,7 @@ pub async fn create_server(
         java_path: java_path,
         jar_path: String::from("server.jar"), // changed later
         backups: Vec::new(),
-        auto_backups: false,
-        auto_backup_on_start: false,
-        auto_backup_interval: String::from("0 * * * *"),
+        backup_settings: BackupSettings::default(),
     };
 
     // install server
@@ -462,9 +444,7 @@ pub async fn import_server(
         java_path: String::from(""),
         jar_path: String::from(""), // made later
         backups: Vec::new(),
-        auto_backups: false,
-        auto_backup_on_start: false,
-        auto_backup_interval: String::from("0 * * * *"),
+        backup_settings: BackupSettings::default(),
     };
 
     try_emit("update-create-button-text", "Extracting archive...");

@@ -5,11 +5,12 @@ use tauri::{Emitter, Manager, WindowEvent};
 
 use crate::{
     manager::{
+        backups::{Backup, BackupSettings},
         ban::{BanEntry, IpBanEntry},
         cron,
         operators::OperatorEntry,
         process,
-        servers::{get_cloned_servers, import_server, Server},
+        servers::{get_cloned_servers, get_servers_mut, import_server, save_servers, Server},
         whitelist::WhitelistEntry,
     },
     minecraft::versions::{get_paper_versions, get_vanilla_versions},
@@ -85,8 +86,6 @@ async fn create_server(
         .await
         .map_err(|e| e.to_string())?;
 
-    update_frontend().map_err(|e| e.to_string())?;
-
     Ok(())
 }
 
@@ -98,7 +97,6 @@ async fn create_server_from_archive(
     import_server(server_name, archive_path)
         .await
         .map_err(|e| e.to_string())?;
-    update_frontend().map_err(|e| e.to_string())?;
 
     Ok(())
 }
@@ -110,22 +108,30 @@ async fn update_server(server: Server) -> Result<(), String> {
 }
 
 #[tauri::command(async)]
-fn start_server(server_id: &str) {
-    let servers = get_cloned_servers();
-    if let Ok(servers) = servers {
-        let server = servers.iter().find(|s| s.server_id == server_id).cloned();
-        process::start_server(server_id).expect("Failed to launch server");
-        if let Some(server) = server {
-            if server.auto_backup_on_start {
-                if let Err(e) = server.create_backup() {
-                    eprintln!(
-                        "Failed to create backup on startup for server {}: {}",
-                        server.server_id, e
-                    );
+fn start_server(server_id: &str) -> Result<(), String> {
+    {
+        let servers = get_servers_mut();
+        if let Ok(mut servers) = servers {
+            let server = servers.iter_mut().find(|s| s.server_id == server_id);
+            if let Some(server) = server {
+                if server.backup_settings.auto_backup_on_start {
+                    if let Err(e) = server.create_backup() {
+                        eprintln!(
+                            "Failed to create backup on startup for server {}: {}",
+                            server.server_id, e
+                        );
+                    }
                 }
             }
         }
     }
+
+    // save in case a backup was created
+    save_servers().map_err(|e| e.to_string())?;
+
+    process::start_server(server_id).expect("Failed to launch server");
+
+    Ok(())
 }
 
 #[tauri::command(async)]
@@ -208,82 +214,80 @@ fn remove_server(server_id: &str) -> Result<(), String> {
 }
 
 #[tauri::command]
-fn get_backups(server_id: &str) -> Result<Vec<crate::manager::backups::BackupEntry>, String> {
-    let server = get_cloned_servers()
-        .map_err(|e| e.to_string())?
-        .into_iter()
-        .find(|s| s.server_id == server_id)
-        .expect("server not found");
+fn create_backup(server_id: &str) -> Result<(), String> {
+    {
+        let servers = get_servers_mut();
 
-    server.list_backups().map_err(|e| e.to_string())
-}
-
-#[tauri::command]
-fn create_backup(server_id: &str) {
-    let servers = get_cloned_servers();
-
-    if let Ok(servers) = servers {
-        let server = servers
-            .into_iter()
-            .find(|s| s.server_id == server_id)
-            .expect("server not found");
-        if let Err(e) = server.create_backup() {
-            eprintln!("Failed to create backup: {}", e);
+        if let Ok(mut servers) = servers {
+            let server = servers
+                .iter_mut()
+                .find(|s| s.server_id == server_id)
+                .expect("server not found");
+            if let Err(e) = server.create_backup() {
+                eprintln!("Failed to create backup: {}", e);
+            }
         }
     }
+
+    save_servers().map_err(|e| e.to_string())
 }
 
 #[tauri::command]
-fn delete_backup(server_id: &str, backup_name: &str) {
-    let servers = get_cloned_servers();
+fn delete_backup(server_id: &str, backup: Backup) -> Result<(), String> {
+    {
+        let servers = get_servers_mut();
 
-    if let Ok(servers) = servers {
-        let server = servers
-            .into_iter()
-            .find(|s| s.server_id == server_id)
-            .expect("server not found");
-        if let Err(e) = server.delete_backup(backup_name) {
-            eprintln!("Failed to delete backup: {}", e);
+        if let Ok(mut servers) = servers {
+            let server = servers
+                .iter_mut()
+                .find(|s| s.server_id == server_id)
+                .expect("server not found");
+            if let Err(e) = server.delete_backup(&backup) {
+                eprintln!("Failed to delete backup: {}", e);
+            }
         }
     }
+
+    save_servers().map_err(|e| e.to_string())
 }
 
 #[tauri::command]
-async fn restore_backup(server_id: &str, backup_name: &str) -> Result<(), String> {
+async fn restore_backup(server_id: &str, backup: Backup) -> Result<(), String> {
     let server = get_cloned_servers()
         .map_err(|e| e.to_string())?
         .into_iter()
         .find(|s| s.server_id == server_id)
         .ok_or("server not found")?;
     server
-        .restore_backup(backup_name)
+        .restore_backup(&backup)
         .await
         .map_err(|e| e.to_string())?;
     Ok(())
 }
 
 #[tauri::command]
-async fn update_auto_backup(
-    server_id: &str,
-    enabled: bool,
-    interval: String,
-    on_start: bool,
-) -> Result<(), String> {
+async fn update_auto_backup(server_id: &str, settings: BackupSettings) -> Result<(), String> {
     let servers = get_cloned_servers().map_err(|e| e.to_string())?;
     if let Some(server) = servers.iter().find(|s| s.server_id == server_id) {
+        let should_update_jobs = settings.auto_backups != server.backup_settings.auto_backups
+            || settings.auto_backup_interval != server.backup_settings.auto_backup_interval;
+
         server
-            .set_auto_backup(enabled, interval.clone(), on_start)
+            .set_backup_settings(&settings)
             .map_err(|e| e.to_string())?;
-        if enabled {
-            server
-                .add_backup_job(&interval)
-                .await
-                .map_err(|e| e.to_string())?;
-        } else {
-            server
-                .remove_backup_job()
-                .await
-                .map_err(|e| e.to_string())?;
+
+        if should_update_jobs {
+            if settings.auto_backups {
+                server
+                    .add_backup_job(&settings.auto_backup_interval)
+                    .await
+                    .map_err(|e| e.to_string())?;
+            } else {
+                server
+                    .remove_backup_job(None)
+                    .await
+                    .map_err(|e| e.to_string())?;
+            }
         }
     }
     Ok(())
@@ -516,7 +520,6 @@ pub fn run() {
             read_properties_lines,
             write_properties,
             remove_server,
-            get_backups,
             create_backup,
             delete_backup,
             restore_backup,

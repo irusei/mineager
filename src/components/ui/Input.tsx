@@ -1,4 +1,5 @@
 import clsx from "clsx";
+import { RefObject } from "react";
 
 interface InputProps {
   className?: string;
@@ -10,6 +11,7 @@ interface InputProps {
     event: React.ChangeEvent<HTMLInputElement, HTMLInputElement>,
   ) => void;
   onBlur?: (event: React.FocusEvent<HTMLInputElement>) => void;
+  ref?: RefObject<HTMLInputElement | null>;
 }
 
 export function Input({
@@ -20,9 +22,11 @@ export function Input({
   disabled,
   onChange,
   onBlur,
+  ref,
 }: InputProps) {
   return (
     <input
+      ref={ref}
       type={type}
       disabled={disabled}
       className={clsx(
