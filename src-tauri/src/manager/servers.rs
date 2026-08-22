@@ -54,6 +54,7 @@ impl Server {
             }
 
             self.clean_server_directory()?;
+            self.clean_backup_directory()?;
         }
         save_servers()?;
 

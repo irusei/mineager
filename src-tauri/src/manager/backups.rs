@@ -47,6 +47,12 @@ impl Server {
         Ok(path)
     }
 
+    pub fn clean_backup_directory(&self) -> Result<(), Box<dyn std::error::Error>> {
+        let backup_path = self.ensure_backup_path()?;
+        fs::remove_dir_all(backup_path)?;
+        Ok(())
+    }
+
     pub fn delete_backup(&mut self, backup: &Backup) -> Result<(), Box<dyn std::error::Error>> {
         let mut backup_path = self.ensure_backup_path()?;
         backup_path.push(&backup.file_name);
