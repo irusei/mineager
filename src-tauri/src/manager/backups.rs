@@ -102,11 +102,7 @@ impl Server {
                     let entry = zip.by_index(i)?;
                     let name = entry.name().to_owned();
 
-                    if entry.is_dir()
-                        && name != "config/"
-                        && name.ends_with("/")
-                        && name.matches("/").count() == 1
-                    {
+                    if entry.is_dir() && name != "config/" && name.matches("/").count() == 1 {
                         Some(name)
                     } else {
                         None
