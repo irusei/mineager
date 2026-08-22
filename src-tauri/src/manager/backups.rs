@@ -22,6 +22,8 @@ pub(crate) struct Backup {
     pub(crate) server_type: String,
     pub(crate) server_version: String,
     pub(crate) size: u64,
+    #[serde(default)]
+    pub(crate) is_compact: bool,
 }
 
 #[derive(Default, Deserialize, Serialize, Clone)]
@@ -32,6 +34,8 @@ pub(crate) struct BackupSettings {
     pub(crate) auto_backup_on_start: bool,
     #[serde(default = "default_auto_backup_interval")]
     pub(crate) auto_backup_interval: String, // crontab notation
+    #[serde(default)]
+    pub(crate) compact_backups: bool,
 }
 
 impl Server {
@@ -107,6 +111,7 @@ impl Server {
             zip: &mut ZipWriter<File>,
             jar_path: &PathBuf,
             should_skip_jar: bool,
+            is_compact: bool,
             options: zip::write::FileOptions<'static, ()>,
         ) -> Result<(), Box<dyn std::error::Error>> {
             let is_forge: bool = jar_path
@@ -120,7 +125,7 @@ impl Server {
                 let relative = path.strip_prefix(root).map_err(|e| e.to_string())?;
 
                 // Skip .jar
-                if &path == jar_path && should_skip_jar {
+                if &path == jar_path && (should_skip_jar || is_compact) {
                     continue;
                 }
 
@@ -140,9 +145,46 @@ impl Server {
                 }
 
                 let metadata = fs::metadata(&path)?;
+
+                // Compact backup - skip root folders that aren't important
+                if is_compact {
+                    // Only backup folders in root directory
+                    if root == dir && !metadata.is_dir() {
+                        continue;
+                    }
+
+                    // Ignore irrelevant folders
+                    if path.strip_prefix(root).map_or(false, |p| {
+                        p.starts_with("plugins")
+                            || p.starts_with("mods")
+                            || p.starts_with("logs")
+                            || p.starts_with("scripts")
+                            || p.starts_with("libraries")
+                            || p.starts_with("coretweaks")
+                    }) {
+                        continue;
+                    }
+
+                    // Ignore everything in config besides the JourneyMapServer folder
+                    if path.strip_prefix(root).map_or(false, |p| {
+                        p.starts_with("config")
+                            && (p != "config" && !p.starts_with("config/JourneyMapServer"))
+                    }) {
+                        continue;
+                    }
+                }
+
                 if metadata.is_dir() {
                     zip.add_directory(relative.to_string_lossy().into_owned(), options)?;
-                    zip_dir(root, &path, zip, jar_path, should_skip_jar, options)?;
+                    zip_dir(
+                        root,
+                        &path,
+                        zip,
+                        jar_path,
+                        should_skip_jar,
+                        is_compact,
+                        options,
+                    )?;
                 } else {
                     match File::open(&path) {
                         Ok(mut file) => {
@@ -167,6 +209,7 @@ impl Server {
             &mut zip,
             &jar_path,
             self.server_type != "Archive",
+            self.backup_settings.compact_backups,
             options,
         )?;
 
@@ -180,6 +223,7 @@ impl Server {
             server_type: self.server_type.clone(),
             server_version: self.server_version.clone(),
             size,
+            is_compact: self.backup_settings.compact_backups,
         });
 
         Ok(())

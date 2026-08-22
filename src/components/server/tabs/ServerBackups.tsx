@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import { Backup, FrontendServer } from "../../../types/types.tsx";
 import { invoke } from "@tauri-apps/api/core";
 import {
@@ -139,6 +139,22 @@ export function ServerBackups({ server }: ServerBackupsProps) {
             </div>
           </SettingContainer>
           <SettingContainer
+            name="Compact Backups"
+            description="Save space by only backing up important folders (i.e. world folders, modded player data). Skips plugins and mods. These backups must be restored manually."
+          >
+            <div className="flex items-center gap-3">
+              <Switch
+                checked={backupSettings.compact_backups}
+                onChecked={(checked) =>
+                  setBackupSettings({
+                    ...backupSettings,
+                    compact_backups: checked,
+                  })
+                }
+              />
+            </div>
+          </SettingContainer>
+          <SettingContainer
             name="Auto Backups"
             description="Automatically backup the server at a set interval."
           >
@@ -205,9 +221,16 @@ export function ServerBackups({ server }: ServerBackupsProps) {
               className={`flex flex-row items-center justify-between bg-bg-1 border border-border rounded-lg p-3`}
             >
               <div className="flex flex-col">
-                <span className="text-sm text-text">
-                  {formatBackupDate(backup.file_name)}
-                </span>
+                <div className="flex flex-row space-x-2">
+                  <span className="text-sm text-text">
+                    {formatBackupDate(backup.file_name)}
+                  </span>
+                  {backup.is_compact && (
+                    <div className="rounded-lg bg-mauve/10 text-mauve text-sm px-2">
+                      compact
+                    </div>
+                  )}
+                </div>
                 <span className="text-xs text-text-2 font-mono">
                   {backup.file_name}
                 </span>
@@ -221,7 +244,7 @@ export function ServerBackups({ server }: ServerBackupsProps) {
                     setSelectedBackup(backup);
                     setShowRestoreModal(true);
                   }}
-                  disabled={server.status === "Online"}
+                  disabled={server.status === "Online" || backup.is_compact}
                   color="primary"
                   className="w-auto py-1.5 px-3 gap-1"
                 >

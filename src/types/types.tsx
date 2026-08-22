@@ -20,12 +20,14 @@ export interface Backup {
   server_type: string;
   server_version: string;
   size: number;
+  is_compact: boolean;
 }
 
 interface BackupSettings {
   auto_backups: boolean;
   auto_backup_on_start: boolean;
   auto_backup_interval: string;
+  compact_backups: boolean;
 }
 
 export interface FrontendServer {
