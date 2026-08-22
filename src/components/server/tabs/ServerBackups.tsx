@@ -244,7 +244,7 @@ export function ServerBackups({ server }: ServerBackupsProps) {
                     setSelectedBackup(backup);
                     setShowRestoreModal(true);
                   }}
-                  disabled={server.status === "Online" || backup.is_compact}
+                  disabled={server.status === "Online"}
                   color="primary"
                   className="w-auto py-1.5 px-3 gap-1"
                 >

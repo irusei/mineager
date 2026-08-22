@@ -60,11 +60,10 @@ impl Server {
         Ok(())
     }
 
-    pub async fn restore_backup(&self, backup: &Backup) -> Result<(), Box<dyn std::error::Error>> {
-        if crate::manager::process::get_status(&self.server_id)? != ServerStatus::Offline {
-            return Err(format!("Server is running").into());
-        }
-
+    async fn restore_regular_backup(
+        &self,
+        backup: &Backup,
+    ) -> Result<(), Box<dyn std::error::Error>> {
         let server_path = self.get_server_path();
 
         let mut backup_path = self.ensure_backup_path()?;
@@ -85,6 +84,68 @@ impl Server {
             return Ok(());
         }
         Err(format!("Backup doesn't exist").into())
+    }
+
+    fn restore_compact_backup(&self, backup: &Backup) -> Result<(), Box<dyn std::error::Error>> {
+        let mut backup_path = self.ensure_backup_path()?;
+        backup_path.push(&backup.file_name);
+
+        if fs::exists(&backup_path)? {
+            let zip_file = File::open(&backup_path)?;
+            let mut zip = ZipArchive::new(&zip_file)?;
+
+            let mut zip_folders: Vec<String> = vec![];
+
+            // Scan all folders to delete in the server directory (besides config, as config might only have one entry - JourneyMapServer)
+            for i in 0..zip.len() {
+                let folder_name = {
+                    let entry = zip.by_index(i)?;
+                    let name = entry.name().to_owned();
+
+                    if entry.is_dir()
+                        && name != "config/"
+                        && name.ends_with("/")
+                        && name.matches("/").count() == 1
+                    {
+                        Some(name)
+                    } else {
+                        None
+                    }
+                };
+
+                if let Some(folder_name) = folder_name {
+                    zip_folders.push(folder_name);
+                }
+            }
+
+            // Remove folders found in the list
+            for folder in zip_folders {
+                let mut folder_path = self.get_server_path();
+                folder_path.push(folder);
+
+                if folder_path.exists() {
+                    fs::remove_dir_all(folder_path)?;
+                }
+            }
+
+            // Extract zip
+            let server_path = self.get_server_path();
+            zip.extract(&server_path)?;
+            return Ok(());
+        }
+
+        Err(format!("Backup doesn't exist").into())
+    }
+
+    pub async fn restore_backup(&self, backup: &Backup) -> Result<(), Box<dyn std::error::Error>> {
+        if crate::manager::process::get_status(&self.server_id)? != ServerStatus::Offline {
+            return Err(format!("Server is running").into());
+        }
+
+        match backup.is_compact {
+            false => self.restore_regular_backup(backup).await,
+            true => self.restore_compact_backup(backup),
+        }
     }
 
     pub fn create_backup(&mut self) -> Result<(), Box<dyn std::error::Error>> {
