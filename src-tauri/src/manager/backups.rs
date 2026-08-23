@@ -217,13 +217,17 @@ impl Server {
                     }
 
                     // Ignore irrelevant folders
+                    // TODO: research optimization, a simple == works however I can't guarantee cross-platform compatibility atm
                     if path.strip_prefix(root).map_or(false, |p| {
                         p.starts_with("plugins")
                             || p.starts_with("mods")
                             || p.starts_with("logs")
                             || p.starts_with("scripts")
+                            || p.starts_with("resources")
+                            || p.starts_with("old_world")
                             || p.starts_with("libraries")
                             || p.starts_with("coretweaks")
+                            || p.starts_with("falsepattern")
                             || p.starts_with("tacz")
                     }) {
                         continue;

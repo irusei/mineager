@@ -417,8 +417,10 @@ export function ServerSettings({ server }: ServerSettingsProps) {
       <Modal
         isOpen={showUpdateModal}
         onClose={() => {
-          setShowUpdateModal(false);
-          setSelectedUpdatePath(null);
+          if (!isUpdating) {
+            setShowUpdateModal(false);
+            setSelectedUpdatePath(null);
+          }
         }}
         title="Update Server from Zip"
         body={
@@ -455,6 +457,7 @@ export function ServerSettings({ server }: ServerSettingsProps) {
                 setShowUpdateModal(false);
                 setSelectedUpdatePath(null);
               }}
+              disabled={isUpdating}
               color="red"
               className="px-4"
             >
