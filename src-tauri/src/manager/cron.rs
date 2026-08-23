@@ -57,7 +57,9 @@ impl Server {
                         let status = get_status(&server_id_clone);
                         if let Ok(status) = status {
                             if status == ServerStatus::Online {
-                                server.create_backup().expect("Failed to create backup");
+                                server
+                                    .create_backup(server.backup_settings.compact_backups)
+                                    .expect("Failed to create backup");
                             }
                         }
                     }

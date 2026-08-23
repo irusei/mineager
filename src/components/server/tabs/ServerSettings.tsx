@@ -1,8 +1,8 @@
 import { useEffect, useState } from "react";
 import { FrontendServer, ServerType } from "../../../types/types.tsx";
-import { Check, X, Cpu, Trash2, FolderOpen } from "lucide-react";
+import { Check, X, Cpu, Trash2, FolderOpen, Archive } from "lucide-react";
 import Button from "../../ui/Button.tsx";
-import { ConfirmModal } from "../../ui/Modal.tsx";
+import { ConfirmModal, Modal } from "../../ui/Modal.tsx";
 import { invoke } from "@tauri-apps/api/core";
 import { SettingContainer } from "../../ui/SettingContainer.tsx";
 import { Input } from "../../ui/Input.tsx";
@@ -18,6 +18,11 @@ interface ServerSettingsProps {
 export function ServerSettings({ server }: ServerSettingsProps) {
   const [settingServer, setSettingServer] = useState<FrontendServer>(server);
   const [showDeleteModal, setShowDeleteModal] = useState<boolean>(false);
+  const [showUpdateModal, setShowUpdateModal] = useState<boolean>(false);
+  const [selectedUpdatePath, setSelectedUpdatePath] = useState<string | null>(
+    null,
+  );
+  const [isUpdating, setIsUpdating] = useState<boolean>(false);
   const [availableVersions, setAvailableVersions] = useState<string[]>([]);
 
   useEffect(() => {
@@ -40,6 +45,39 @@ export function ServerSettings({ server }: ServerSettingsProps) {
   async function deleteServer() {
     await invoke("remove_server", { serverId: server.server.server_id });
     setShowDeleteModal(false);
+  }
+
+  async function openUpdateFromZip() {
+    if (server.status === "Online") return;
+
+    const selected = await open({
+      title: "Select archive .zip",
+      multiple: false,
+      filters: [{ name: "Archive", extensions: ["zip"] }],
+    });
+
+    if (selected) {
+      setSelectedUpdatePath(selected);
+      setShowUpdateModal(true);
+    }
+  }
+
+  async function confirmUpdateFromZip() {
+    if (!selectedUpdatePath) return;
+
+    setIsUpdating(true);
+    try {
+      await invoke("update_archive", {
+        server: server.server,
+        archivePath: selectedUpdatePath,
+      });
+      setShowUpdateModal(false);
+      setSelectedUpdatePath(null);
+    } catch (e) {
+      alert(`Failed to update server: ${e}`);
+    } finally {
+      setIsUpdating(false);
+    }
   }
   useEffect(() => {
     setSettingServer(server);
@@ -261,6 +299,30 @@ export function ServerSettings({ server }: ServerSettingsProps) {
               <Trash2 className="w-4 h-4 text-red" />
               <p className="text-base font-semibold text-red">Danger Zone</p>
             </div>
+            {server.server.server_type === "Archive" && (
+              <SettingContainer
+                name="Update from Zip"
+                description={
+                  <span>
+                    Update this archive server from a new .zip archive. <br />
+                    This creates a compact backup of your world,
+                    wipes the entire server folder, extracts the new archive,
+                    then restores your world on top. <br />
+                    Anything else is replaced by the new archive.
+                  </span>
+                }
+              >
+                <Button
+                  className={"w-1/2"}
+                  disabled={server.status === "Online" || isUpdating}
+                  color="primary"
+                  onClick={openUpdateFromZip}
+                >
+                  <Archive className="w-4 h-4" />
+                  <span>Update from Zip</span>
+                </Button>
+              </SettingContainer>
+            )}
             {server.server.server_type != "Archive" && (
               <>
                 <SettingContainer name="Server Jar" description="">
@@ -351,6 +413,56 @@ export function ServerSettings({ server }: ServerSettingsProps) {
         onConfirm={deleteServer}
         confirmColor="primary"
         cancelText="Cancel"
+      />
+      <Modal
+        isOpen={showUpdateModal}
+        onClose={() => {
+          setShowUpdateModal(false);
+          setSelectedUpdatePath(null);
+        }}
+        title="Update Server from Zip"
+        body={
+          <div className="space-y-2 text-sm leading-relaxed text-text">
+            <p>
+              This will update your archive server using the selected .zip
+              archive.
+            </p>
+            <p>
+              A compact backup of your world is created first. The
+              entire server folder is then wiped and the new archive is
+              extracted. Your world is restored on top afterwards.
+            </p>
+            <p className="break-all text-text-2">Archive: {selectedUpdatePath}</p>
+            <p className="text-red">
+              Everything else will be replaced by the new archive, so
+              make sure it is the correct version. This cannot be undone.
+            </p>
+          </div>
+        }
+        footer={
+          <>
+            <Button
+              onClick={confirmUpdateFromZip}
+              color="primary"
+              className="px-4"
+              disabled={isUpdating}
+            >
+              <Check className={"w-4 h-4"} />
+              <span>{isUpdating ? "Updating..." : "Update"}</span>
+            </Button>
+            <Button
+              onClick={() => {
+                setShowUpdateModal(false);
+                setSelectedUpdatePath(null);
+              }}
+              color="red"
+              className="px-4"
+            >
+              <X className={"w-4 h-4"} />
+              <span>Cancel</span>
+            </Button>
+          </>
+        }
       />
     </>
   );

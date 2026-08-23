@@ -150,7 +150,7 @@ impl Server {
         }
     }
 
-    pub fn create_backup(&mut self) -> Result<(), Box<dyn std::error::Error>> {
+    pub fn create_backup(&mut self, compact: bool) -> Result<Backup, Box<dyn std::error::Error>> {
         let server_path = self.get_server_path();
 
         let mut backup_path = self.ensure_backup_path()?;
@@ -224,6 +224,7 @@ impl Server {
                             || p.starts_with("scripts")
                             || p.starts_with("libraries")
                             || p.starts_with("coretweaks")
+                            || p.starts_with("tacz")
                     }) {
                         continue;
                     }
@@ -272,7 +273,7 @@ impl Server {
             &mut zip,
             &jar_path,
             self.server_type != "Archive",
-            self.backup_settings.compact_backups,
+            compact,
             options,
         )?;
 
@@ -281,14 +282,16 @@ impl Server {
         // Push backup to the new list
         let size = fs::metadata(&backup_path)?.len();
 
-        self.backups.push(Backup {
+        let backup = Backup {
             file_name,
             server_type: self.server_type.clone(),
             server_version: self.server_version.clone(),
             size,
-            is_compact: self.backup_settings.compact_backups,
-        });
+            is_compact: compact,
+        };
 
-        Ok(())
+        self.backups.push(backup.clone());
+
+        Ok(backup)
     }
 }

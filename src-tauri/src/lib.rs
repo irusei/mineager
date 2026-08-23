@@ -102,6 +102,14 @@ async fn create_server_from_archive(
 }
 
 #[tauri::command(async)]
+async fn update_archive(server: Server, archive_path: String) -> Result<(), String> {
+    server
+        .update_from_archive(archive_path)
+        .await
+        .map_err(|e| e.to_string())
+}
+
+#[tauri::command(async)]
 async fn update_server(server: Server) -> Result<(), String> {
     server.update().await.map_err(|e| e.to_string())?;
     Ok(())
@@ -115,7 +123,7 @@ fn start_server(server_id: &str) -> Result<(), String> {
             let server = servers.iter_mut().find(|s| s.server_id == server_id);
             if let Some(server) = server {
                 if server.backup_settings.auto_backup_on_start {
-                    if let Err(e) = server.create_backup() {
+                    if let Err(e) = server.create_backup(server.backup_settings.compact_backups) {
                         eprintln!(
                             "Failed to create backup on startup for server {}: {}",
                             server.server_id, e
@@ -228,7 +236,7 @@ fn create_backup(server_id: &str) -> Result<(), String> {
                 .iter_mut()
                 .find(|s| s.server_id == server_id)
                 .expect("server not found");
-            if let Err(e) = server.create_backup() {
+            if let Err(e) = server.create_backup(server.backup_settings.compact_backups) {
                 eprintln!("Failed to create backup: {}", e);
             }
         }
@@ -516,6 +524,7 @@ pub fn run() {
             fetch_versions,
             create_server,
             create_server_from_archive,
+            update_archive,
             update_server,
             start_server,
             terminate_server,
