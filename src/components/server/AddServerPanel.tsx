@@ -32,18 +32,19 @@ export function AddServerPanel({ isOpen, onOpenChange }: AddServerPanelProps) {
 
     if (serverType != "Archive") {
       if (version === null) return;
+      setCreateBtnDisabled(true);
       await invoke("create_server", { serverName, serverType, version });
     } else {
       // Handle archive server
       if (archivePath === "") return;
+      setCreateBtnDisabled(true);
       await invoke("create_server_from_archive", {
         serverName,
         serverType,
         archivePath,
       });
     }
-
-    setCreateBtnDisabled(true);
+    setCreateBtnDisabled(false);
     onOpenChange(false);
   }
 

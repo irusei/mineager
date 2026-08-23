@@ -10,6 +10,7 @@ import { Select } from "../../ui/Select.tsx";
 import { Slider } from "../../ui/Slider.tsx";
 import { sortVersions } from "../../../utils/versions.ts";
 import { open } from "@tauri-apps/plugin-dialog";
+import { Switch } from "../../ui/Switch.tsx";
 
 interface ServerSettingsProps {
   server: FrontendServer;
@@ -170,16 +171,41 @@ export function ServerSettings({ server }: ServerSettingsProps) {
               >
                 <Input
                   type="text"
-                  value={settingServer.server.launch_args}
+                  value={settingServer.server.launch_args.custom}
                   onChange={(event) => {
                     setSettingServer((oldSettingServer) => ({
                       ...oldSettingServer,
                       server: {
                         ...oldSettingServer.server,
-                        launch_args: event.target.value,
+                        launch_args: {
+                          ...oldSettingServer.server.launch_args,
+                          custom: event.target.value,
+                        },
                       },
                     }));
                   }}
+                />
+              </SettingContainer>
+              <SettingContainer
+                name={"Force IPv4"}
+                description={
+                  "Prefer IPv4 over IPv6. Can fix issues with binding ports."
+                }
+              >
+                <Switch
+                  checked={settingServer.server.launch_args.force_ipv4}
+                  onChecked={(checked) =>
+                    setSettingServer((oldSettingServer) => ({
+                      ...oldSettingServer,
+                      server: {
+                        ...oldSettingServer.server,
+                        launch_args: {
+                          ...oldSettingServer.server.launch_args,
+                          force_ipv4: checked,
+                        },
+                      },
+                    }))
+                  }
                 />
               </SettingContainer>
               <SettingContainer

@@ -22,7 +22,8 @@ pub(crate) struct Server {
     pub(crate) server_name: String,
     pub(crate) server_type: String,
     pub(crate) server_version: String,
-    pub(crate) launch_args: String,
+    #[serde(default)]
+    pub(crate) launch_args: LaunchArgSettings,
     pub(crate) allocated_ram: String,
     pub(crate) java_path: String,
     #[serde(default)]
@@ -33,6 +34,18 @@ pub(crate) struct Server {
     pub(crate) backups: Vec<Backup>,
     #[serde(default)]
     pub(crate) backup_settings: BackupSettings,
+}
+
+fn force_ipv4() -> bool {
+    true
+}
+
+#[derive(Default, Deserialize, Serialize, Clone)]
+pub(crate) struct LaunchArgSettings {
+    #[serde(default = "force_ipv4")]
+    pub(crate) force_ipv4: bool,
+    #[serde(default)]
+    pub(crate) custom: String,
 }
 
 impl Server {
@@ -411,7 +424,7 @@ pub async fn create_server(
         server_name: sanitize_name(&server_name),
         server_type: server_type.clone(), // avoid moving
         server_version: version,
-        launch_args: String::from(""),
+        launch_args: LaunchArgSettings::default(),
         allocated_ram: String::from("4096M"),
         java_path: java_path,
         jar_path: String::from("server.jar"), // changed later
@@ -467,7 +480,7 @@ pub async fn import_server(
         server_name: sanitize_name(&server_name),
         server_type: String::from("Archive"),
         server_version: String::from("Unknown"), // TODO: dedicate this to the modpack version
-        launch_args: String::from(""),
+        launch_args: LaunchArgSettings::default(),
         allocated_ram: String::from("4096M"),
         java_path: String::from(""),
         jar_path: String::from(""), // made later

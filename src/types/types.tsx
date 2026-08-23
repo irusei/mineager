@@ -10,7 +10,7 @@ interface MinecraftServer {
   jar_path: string;
 
   allocated_ram: string;
-  launch_args: string;
+  launch_args: LaunchArgSettings;
   backups: Backup[];
   backup_settings: BackupSettings;
 }
@@ -28,6 +28,11 @@ interface BackupSettings {
   auto_backup_on_start: boolean;
   auto_backup_interval: string;
   compact_backups: boolean;
+}
+
+interface LaunchArgSettings {
+  force_ipv4: boolean;
+  custom: string;
 }
 
 export interface FrontendServer {

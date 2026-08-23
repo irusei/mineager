@@ -70,7 +70,11 @@ pub fn start_server(server_id: &str) -> Result<(), Box<dyn std::error::Error>> {
             .stdout(Stdio::piped())
             .stderr(Stdio::piped())
             .arg(format!("-Xmx{}", &server.allocated_ram))
-            .args(server.launch_args.split_whitespace());
+            .args(server.launch_args.custom.split_whitespace());
+
+        if server.launch_args.force_ipv4 {
+            config.arg("-Djava.net.preferIPv4Stack=true");
+        }
 
         // Special Java arguments for GTNH .jar files
         let arg_files = vec!["java9args.txt"];
