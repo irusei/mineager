@@ -188,7 +188,7 @@ export function ServerSettings({ server }: ServerSettingsProps) {
               >
                 <Slider
                   min={512}
-                  max={8192}
+                  max={12288}
                   step={512}
                   value={
                     isNaN(parseInt(settingServer.server.allocated_ram))
