@@ -310,21 +310,44 @@ pub fn get_all_pids() -> Result<Vec<u32>, Box<dyn std::error::Error>> {
 
     Ok(pids)
 }
+fn kill_pid(pid: sysinfo::Pid) -> bool {
+    let mut system = sysinfo::System::new();
+    system.refresh_processes(sysinfo::ProcessesToUpdate::Some(&[pid]), true);
+
+    match system.process(pid) {
+        Some(process) => {
+            process.kill();
+            true
+        }
+        None => false,
+    }
+}
+
 pub fn stop_all_servers() -> Result<(), Box<dyn std::error::Error>> {
     let pids = get_all_pids()?
         .iter()
         .map(|pid| sysinfo::Pid::from_u32(*pid))
         .collect::<Vec<sysinfo::Pid>>();
 
-    let mut system = sysinfo::System::new();
-
-    system.refresh_processes(sysinfo::ProcessesToUpdate::Some(&pids), true);
-
     for pid in pids {
-        if let Some(process) = system.process(pid) {
-            process.kill();
-        }
+        let _ = kill_pid(pid);
     }
+
+    Ok(())
+}
+
+pub fn terminate_server(server_id: &str) -> Result<(), Box<dyn std::error::Error>> {
+    let pid = {
+        let locked_processes = SERVER_PROCESS_HASHMAP.lock()?;
+        locked_processes.get(server_id).map(|p| p.pid)
+    };
+
+    let Some(pid) = pid else {
+        return Err(format!("Server {} is not running", server_id).into());
+    };
+
+    let sys_pid = sysinfo::Pid::from_u32(pid);
+    let _ = kill_pid(sys_pid);
 
     Ok(())
 }

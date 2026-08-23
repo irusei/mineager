@@ -3,8 +3,8 @@ import { FrontendServer } from "../../../types/types.tsx";
 import { invoke } from "@tauri-apps/api/core";
 import { getConsoleColor } from "../../../utils/colors.ts";
 import { listen } from "@tauri-apps/api/event";
-import { Terminal, Play, Square, Search } from "lucide-react";
-import { Modal } from "../../ui/Modal";
+import { Terminal, Play, Square, Search, PowerOff } from "lucide-react";
+import { Modal, ConfirmModal } from "../../ui/Modal";
 import Button from "../../ui/Button";
 interface ConsoleUpdatePayload {
   server_id: string;
@@ -13,14 +13,11 @@ interface ConsoleUpdatePayload {
 
 interface ServerConsoleProps {
   server: FrontendServer;
-  startServer: () => void;
-  stopServer: () => void;
 }
+
 
 export function ServerConsole({
   server,
-  startServer,
-  stopServer,
 }: ServerConsoleProps) {
   const consoleRef = useRef<HTMLDivElement>(null);
   const atBottomRef = useRef<boolean>(true);
@@ -33,6 +30,28 @@ export function ServerConsole({
   const [eulaVisible, setEulaVisible] = useState<boolean>(false);
   const [consoleSearch, setConsoleSearch] = useState<string>("");
   const [eulaAccepted, setEulaAccepted] = useState<boolean>(true); // default to true so it doesn't spam, set to false later
+  const [terminateVisible, setTerminateVisible] = useState<boolean>(false);
+
+  async function startServer() {
+    if (server.server.java_path === "")
+      return alert("Please configure the Java path in settings!");
+
+    if (server.status === "Online") return;
+
+    await invoke("start_server", { serverId: server.server.server_id });
+  }
+
+  async function stopServer() {
+    await invoke("write_stdin", {
+      serverId: server.server.server_id,
+      string: "stop",
+    });
+  }
+
+  async function terminateServer() {
+    await invoke("terminate_server", { serverId: server.server.server_id });
+  }
+
 
   useEffect(() => {
     const consoleDiv = consoleRef.current;
@@ -183,6 +202,11 @@ export function ServerConsole({
     }
   }
 
+  function confirmTerminate() {
+    terminateServer();
+    setTerminateVisible(false);
+  }
+
   return (
     <div className="flex-1 h-full bg-bg-1 flex flex-col gap-3">
       <div className="flex-1 flex flex-col bg-bg-2 border-b border-border overflow-hidden">
@@ -214,13 +238,23 @@ export function ServerConsole({
                 Start
               </button>
             ) : (
-              <button
-                onClick={stopServer}
-                className="h-8 px-3 rounded-lg bg-red text-crust text-sm font-medium hover:bg-red/90 transition-colors flex items-center gap-2"
-              >
-                <Square className="w-4 h-4" />
-                Stop
-              </button>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => setTerminateVisible(true)}
+                  title="Force kill the server process"
+                  className="h-8 px-3 rounded-lg bg-red text-crust text-sm font-medium hover:bg-red/90 transition-colors flex items-center gap-2"
+                >
+                  <PowerOff className="w-4 h-4" />
+                  Terminate
+                </button>
+                <button
+                  onClick={stopServer}
+                  className="h-8 px-3 rounded-lg bg-red text-crust text-sm font-medium hover:bg-red/90 transition-colors flex items-center gap-2"
+                >
+                  <Square className="w-4 h-4" />
+                  Stop
+                </button>
+              </div>
             )}
           </div>
         </div>
@@ -277,6 +311,17 @@ export function ServerConsole({
               />
             </>
           }
+        />
+
+        <ConfirmModal
+          isOpen={terminateVisible}
+          onClose={() => setTerminateVisible(false)}
+          title="Terminate Server"
+          description="This will forcefully kill the server process. Any unsaved data or running tasks may be lost. Are you sure?"
+          confirmText="Terminate"
+          onConfirm={confirmTerminate}
+          confirmColor="primary"
+          cancelText="Cancel"
         />
       </div>
     </div>

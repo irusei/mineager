@@ -26,22 +26,6 @@ interface ServerViewProps {
 export default function ServerView({ server }: ServerViewProps) {
   const [tab, setTab] = useState<Tab>("Console");
 
-  async function startServer() {
-    if (server.server.java_path === "")
-      return alert("Please configure the Java path in settings!");
-
-    if (server.status === "Online") return;
-
-    await invoke("start_server", { serverId: server.server.server_id });
-  }
-
-  async function stopServer() {
-    await invoke("write_stdin", {
-      serverId: server.server.server_id,
-      string: "stop",
-    });
-  }
-
   async function openFolder() {
     await invoke("open_server_folder", { serverId: server.server.server_id });
   }
@@ -99,8 +83,6 @@ export default function ServerView({ server }: ServerViewProps) {
         {tab === "Console" && (
           <ServerConsole
             server={server}
-            startServer={startServer}
-            stopServer={stopServer}
           />
         )}
         {tab === "Settings" && <ServerSettings server={server} />}

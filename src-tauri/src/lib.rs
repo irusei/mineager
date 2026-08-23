@@ -135,6 +135,11 @@ fn start_server(server_id: &str) -> Result<(), String> {
 }
 
 #[tauri::command(async)]
+fn terminate_server(server_id: &str) -> Result<(), String> {
+    process::terminate_server(server_id).map_err(|e| e.to_string())
+}
+
+#[tauri::command(async)]
 fn get_stdout(server_id: &str) -> Vec<String> {
     process::get_stdout(server_id)
 }
@@ -513,6 +518,7 @@ pub fn run() {
             create_server_from_archive,
             update_server,
             start_server,
+            terminate_server,
             get_stdout,
             get_eula_accepted,
             set_eula_accepted,
