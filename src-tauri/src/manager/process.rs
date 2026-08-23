@@ -69,6 +69,7 @@ pub fn start_server(server_id: &str) -> Result<(), Box<dyn std::error::Error>> {
             .stdin(Stdio::piped())
             .stdout(Stdio::piped())
             .stderr(Stdio::piped())
+            .arg(format!("-Xms{}", &server.allocated_ram))
             .arg(format!("-Xmx{}", &server.allocated_ram))
             .args(server.launch_args.custom.split_whitespace());
 
