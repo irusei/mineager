@@ -46,6 +46,8 @@ pub(crate) struct LaunchArgSettings {
     pub(crate) force_ipv4: bool,
     #[serde(default)]
     pub(crate) custom: String,
+    #[serde(default)]
+    pub(crate) aikars_flags: bool,
 }
 
 impl Server {

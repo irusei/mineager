@@ -209,6 +209,26 @@ export function ServerSettings({ server }: ServerSettingsProps) {
                 />
               </SettingContainer>
               <SettingContainer
+                name="Aikar's Flags"
+                description="Apply Aikar's flags for better server performance."
+              >
+                <Switch
+                  checked={settingServer.server.launch_args.aikars_flags}
+                  onChecked={(checked) =>
+                    setSettingServer((oldSettingServer) => ({
+                      ...oldSettingServer,
+                      server: {
+                        ...oldSettingServer.server,
+                        launch_args: {
+                          ...oldSettingServer.server.launch_args,
+                          aikars_flags: checked,
+                        },
+                      },
+                    }))
+                  }
+                />
+              </SettingContainer>
+              <SettingContainer
                 name="Allocated RAM"
                 description="Maximum RAM that can be used on the server."
               >

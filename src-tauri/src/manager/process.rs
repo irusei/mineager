@@ -31,6 +31,33 @@ struct ConsoleUpdatePayload {
 static SERVER_PROCESS_HASHMAP: LazyLock<Mutex<HashMap<String, ServerProcess>>> =
     LazyLock::new(|| Mutex::new(HashMap::new()));
 
+fn add_aikars_flags(config: &mut Command) {
+    let flags = [
+        "-XX:+UseG1GC",
+        "-XX:+ParallelRefProcEnabled",
+        "-XX:MaxGCPauseMillis=200",
+        "-XX:+UnlockExperimentalVMOptions",
+        "-XX:+DisableExplicitGC",
+        "-XX:+AlwaysPreTouch",
+        "-XX:G1NewSizePercent=30",
+        "-XX:G1MaxNewSizePercent=40",
+        "-XX:G1HeapRegionSize=8M",
+        "-XX:G1ReservePercent=20",
+        "-XX:G1HeapWastePercent=5",
+        "-XX:G1MixedGCCountTarget=4",
+        "-XX:InitiatingHeapOccupancyPercent=15",
+        "-XX:G1MixedGCLiveThresholdPercent=90",
+        "-XX:G1RSetUpdatingPauseTimePercent=5",
+        "-XX:SurvivorRatio=32",
+        "-XX:+PerfDisableSharedMem",
+        "-XX:MaxTenuringThreshold=1",
+        "-Dusing.aikars.flags=https://mcflags.emc.gs",
+        "-Daikars.new.flags=true",
+    ];
+
+    config.args(flags);
+}
+
 pub fn start_server(server_id: &str) -> Result<(), Box<dyn std::error::Error>> {
     let server = {
         let locked_servers = get_cloned_servers()?;
@@ -90,6 +117,10 @@ pub fn start_server(server_id: &str) -> Result<(), Box<dyn std::error::Error>> {
 
                 config.args(args.split_whitespace());
             }
+        }
+
+        if server.launch_args.aikars_flags {
+            add_aikars_flags(&mut config);
         }
 
         if !is_forge {

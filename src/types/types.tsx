@@ -33,6 +33,7 @@ interface BackupSettings {
 interface LaunchArgSettings {
   force_ipv4: boolean;
   custom: string;
+  aikars_flags: boolean;
 }
 
 export interface FrontendServer {
