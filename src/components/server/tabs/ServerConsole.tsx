@@ -23,29 +23,30 @@ export function ServerConsole({
   stopServer,
 }: ServerConsoleProps) {
   const consoleRef = useRef<HTMLDivElement>(null);
+  const atBottomRef = useRef<boolean>(true);
   const [consoleInput, setConsoleInput] = useState<string>("");
   const [consoleOutput, setConsoleOutput] = useState<string[]>([
     "Server offline",
   ]);
   const [filteredConsoleOutput, setFilteredConsoleOutput] =
     useState<string[]>(consoleOutput);
-  const [shouldScroll, setShouldScroll] = useState<boolean>(false);
   const [eulaVisible, setEulaVisible] = useState<boolean>(false);
   const [consoleSearch, setConsoleSearch] = useState<string>("");
   const [eulaAccepted, setEulaAccepted] = useState<boolean>(true); // default to true so it doesn't spam, set to false later
 
-  function shouldScrollToBottom() {
-    const consoleDiv: HTMLDivElement | null = consoleRef.current;
-    if (consoleDiv === null) return false;
-    const height = Math.abs(consoleDiv.scrollHeight - consoleDiv.scrollTop);
-    return height <= consoleDiv.clientHeight + 30;
-  }
-
-  function scrollToBottom() {
-    const consoleDiv: HTMLDivElement | null = consoleRef.current;
+  useEffect(() => {
+    const consoleDiv = consoleRef.current;
     if (consoleDiv === null) return;
-    consoleDiv.scrollTop = consoleDiv.scrollHeight;
-  }
+
+    const onScroll = () => {
+      const distanceFromBottom =
+        consoleDiv.scrollHeight - consoleDiv.scrollTop - consoleDiv.clientHeight;
+      atBottomRef.current = distanceFromBottom <= 24;
+    };
+
+    consoleDiv.addEventListener("scroll", onScroll);
+    return () => consoleDiv.removeEventListener("scroll", onScroll);
+  }, []);
 
   function updateFilter(output: string[]) {
     if (consoleSearch === "") {
@@ -108,7 +109,6 @@ export function ServerConsole({
           let response: string[] = res as string[];
           if (response.length > 0) {
             if (consoleOutput != response) {
-              setShouldScroll(shouldScrollToBottom());
               setConsoleOutput(response);
             }
           }
@@ -120,7 +120,6 @@ export function ServerConsole({
     const consoleUpdateUnlisten = listen("console-update", (event) => {
       const consoleUpdatePayload = event.payload as ConsoleUpdatePayload;
       if (consoleUpdatePayload.server_id === server.server.server_id) {
-        setShouldScroll(shouldScrollToBottom());
         setConsoleOutput((oldConsoleOutput) => [
           ...oldConsoleOutput,
           consoleUpdatePayload.line,
@@ -147,9 +146,12 @@ export function ServerConsole({
     updateFilter(consoleOutput);
   }, [consoleOutput]);
 
-  // scrolling to bottom behavior
+  // autoscroll to bottom when new lines are added
   useEffect(() => {
-    if (shouldScroll) scrollToBottom();
+    if (!atBottomRef.current) return;
+    const consoleDiv = consoleRef.current;
+    if (consoleDiv === null) return;
+    consoleDiv.scrollTop = consoleDiv.scrollHeight;
   }, [filteredConsoleOutput]);
 
   useEffect(() => {
@@ -226,7 +228,7 @@ export function ServerConsole({
         {/* I'm so sorry for this :( */}
         <div
           ref={consoleRef}
-          className="max-w-235 min-w-235 min-h-[19.625rem] max-h-[19.625rem] flex-1 px-4 py-3 overflow-x-auto overflow-y-auto font-mono text-sm scrollbar-hide bg-bg-1"
+          className="max-w-235 min-w-235 min-h-[19.625rem] max-h-[19.625rem] flex-1 px-4 py-3 overflow-x-auto overflow-y-auto font-mono text-sm bg-bg-1"
         >
           {filteredConsoleOutput.map((line, index) => (
             <p
