@@ -3,6 +3,7 @@ use std::fs;
 use std::fs::{File, OpenOptions};
 use std::io::{BufRead, BufReader, ErrorKind, Write};
 use std::path::PathBuf;
+use std::process::Command;
 use std::sync::{LazyLock, Mutex, MutexGuard};
 use zip::ZipArchive;
 
@@ -432,6 +433,32 @@ pub async fn import_server(
     server_name: String,
     archive_path: String,
 ) -> Result<(), Box<dyn std::error::Error>> {
+    async fn get_java_from_forge_jar(filename: &str) -> Option<String> {
+        if let Some(version_with_suffix) = filename.strip_prefix("forge-") {
+            // now, we're looking at "minecraft_version-forge_version-universal or -server.jar"
+            // should split the - one more time if exists?
+            let mut split = version_with_suffix.split("-");
+            if split.clone().count() > 1 {
+                // - was found
+                let mc_version = split.next();
+
+                if let Some(mc_version) = mc_version {
+                    // try to download java
+                    try_emit("update-create-button-text", "Downloading Java...");
+                    let jre_version = &get_jre_version(&mc_version);
+                    let java_path = jre_version
+                        .download()
+                        .await
+                        .map(|result| result.to_string_lossy().into_owned())
+                        .unwrap_or(String::from(""));
+
+                    return Some(java_path);
+                }
+            }
+        }
+
+        return None;
+    }
     // make uuid
     let server_id: String = uuid::Uuid::new_v4().to_string();
 
@@ -457,6 +484,57 @@ pub async fn import_server(
 
     // Try to detect jar file
     let mut jar_file: Option<String> = None;
+
+    let mut libraries = server.get_server_path();
+    libraries.push("libraries");
+
+    let server_path = server.get_server_path();
+
+    // Edge-case for modpacks without pre-installed Forge, but an installer left in the root directory
+    if !libraries.exists() {
+        if let Ok(entries) = std::fs::read_dir(server.get_server_path()) {
+            // Find .jar
+            if let Some(forge_installer_jar) = entries
+                .flatten()
+                .map(|file| file.path())
+                .filter(|path| {
+                    path.is_file()
+                        && path
+                            .file_name()
+                            .map(|name| {
+                                name.to_string_lossy()
+                                    .to_string()
+                                    .ends_with("-installer.jar")
+                            })
+                            .or(Some(false))
+                            .unwrap()
+                })
+                .collect::<Vec<PathBuf>>()
+                .first()
+            {
+                let jar_filename = forge_installer_jar.file_name();
+                if let Some(jar_filename) = jar_filename {
+                    let java_path =
+                        get_java_from_forge_jar(&jar_filename.to_string_lossy().to_string()).await;
+
+                    // run the installer with "the appropriate java version" to install forge
+                    if let Some(java_path) = java_path {
+                        let mut config = Command::new(java_path);
+
+                        config
+                            .current_dir(&server_path)
+                            .arg("-jar")
+                            .arg(&forge_installer_jar)
+                            .arg("--installServer");
+
+                        if let Ok(mut installer_child) = config.spawn() {
+                            let _ = installer_child.wait();
+                        }
+                    }
+                }
+            }
+        }
+    }
 
     // Check forge .jar file location in libraries first
     let mut forge_path = server.get_server_path();
@@ -490,35 +568,11 @@ pub async fn import_server(
                                     .to_string_lossy()
                                     .to_string();
 
-                                if let Some(version_with_suffix) =
-                                    jar_filename.strip_prefix("forge-")
-                                {
-                                    // now, we're looking at "minecraft_version-forge_version-universal or -server.jar"
-                                    // should split the - one more time if exists?
-                                    let mut split = version_with_suffix.split("-");
-                                    if split.clone().count() > 1 {
-                                        // - was found
-                                        let mc_version = split.next();
-
-                                        if let Some(mc_version) = mc_version {
-                                            // try to download java
-                                            try_emit(
-                                                "update-create-button-text",
-                                                "Downloading Java...",
-                                            );
-                                            let jre_version = &get_jre_version(&mc_version);
-                                            let java_path = jre_version
-                                                .download()
-                                                .await
-                                                .map(|result| result.to_string_lossy().into_owned())
-                                                .unwrap_or(String::from(""));
-
-                                            server.java_path = java_path;
-                                        }
-                                    }
+                                let java_path = get_java_from_forge_jar(&jar_filename).await;
+                                if let Some(java_path) = java_path {
+                                    server.java_path = java_path;
+                                    break;
                                 }
-
-                                break;
                             }
                         }
                     }
@@ -554,7 +608,6 @@ pub async fn import_server(
 
     // Prioritize forge if exists
     if jar_file.is_none() {
-        let server_path = server.get_server_path();
         let children = fs::read_dir(server_path);
 
         if let Ok(children) = children {
@@ -570,6 +623,7 @@ pub async fn import_server(
                         // When forge isn't found, switch jar_file to fallback_jar
                         if filename.starts_with("forge")
                             && !filename.ends_with("-installer.jar")
+                            && !filename.ends_with("-shim.jar")
                             && filename.ends_with(".jar")
                         {
                             jar_file = Some(path.to_string_lossy().to_string());
@@ -577,7 +631,10 @@ pub async fn import_server(
                         }
 
                         // Default fallback jar
-                        if !filename.ends_with("-installer.jar") && filename.ends_with(".jar") {
+                        if !filename.ends_with("-installer.jar")
+                            && !filename.ends_with("-shim.jar")
+                            && filename.ends_with(".jar")
+                        {
                             fallback_jar = Some(path.to_string_lossy().to_string());
                         }
                     }
