@@ -127,6 +127,7 @@ impl JreVersion {
 
                 #[cfg(target_os = "windows")]
                 {
+                    use zip::ZipArchive;
                     let cursor = Cursor::new(zip_bytes);
                     let mut archive = ZipArchive::new(cursor)?;
                     archive.extract_unwrapped_root_dir(
